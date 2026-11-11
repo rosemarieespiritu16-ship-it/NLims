@@ -1,0 +1,96 @@
+{% extends 'base.html' %}
+{% block title %}My Bookings - InventorPro{% endblock %}
+{% block content %}
+<div class="d-sm-flex align-items-center justify-content-between mb-4">
+    <h1 class="h3 mb-0 text-gray-800">My Bookings</h1>
+    <a href="{{ url_for('booking.new') }}" class="d-none d-sm-inline-block btn btn-sm btn-primary shadow-sm"><i class="fas fa-plus fa-sm text-white-50"></i> New Booking</a>
+</div>
+
+<div class="card shadow mb-4">
+    <div class="card-header py-3">
+        <div class="btn-group flex-wrap">
+            <a href="{{ url_for('booking.index', status='my') }}" class="btn btn-sm {% if status_filter == 'my' %}btn-primary{% else %}btn-light{% endif %}">My Book</a>
+            <a href="{{ url_for('booking.index', status='approved') }}" class="btn btn-sm {% if status_filter == 'approved' %}btn-primary{% else %}btn-light{% endif %}">Approved</a>
+            <a href="{{ url_for('booking.index', status='complete') }}" class="btn btn-sm {% if status_filter == 'complete' %}btn-primary{% else %}btn-light{% endif %}">Complete</a>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Code</th>
+                        <th>Type</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for a in appts %}
+                    <tr>
+                        <td>{{ a.appointment_date }}</td>
+                        <td>{{ a.appointment_code or '-' }}</td>
+                        <td>
+                            {% if a.is_walkin %}<span class="badge badge-warning">Walk-in</span>
+                            {% else %}<span class="badge badge-primary">Online</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if a.status == 'pending' %}<span class="badge badge-warning">My Book</span>
+                            {% elif a.status == 'confirmed' %}<span class="badge badge-info">Approved</span>
+                            {% elif a.status == 'completed' %}<span class="badge badge-success">Complete</span>
+                            {% elif a.status == 'cancelled' %}<span class="badge badge-danger">Cancelled</span>
+                            {% elif a.status == 'voided' %}<span class="badge badge-dark">Voided</span>
+                            {% elif a.status == 'no_show' %}<span class="badge badge-danger">No-Show</span>
+                            {% elif a.status == 'draft' %}<span class="badge badge-secondary">Draft</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{{ url_for('booking.detail', id=a.id) }}" class="btn btn-sm btn-info mr-1">View</a>
+                            {% if a.status in ['pending', 'confirmed'] and a.appointment_date > now.date() %}
+                            <form action="{{ url_for('booking.cancel', id=a.id) }}" method="post" style="display:inline" onsubmit="return confirm('Cancel this booking?{% if a.reservation_paid_at %} Your reservation fee is non-refundable.{% else %} Your slot will be returned.{% endif %}')">
+                                <button type="submit" class="btn btn-sm btn-danger">Cancel</button>
+                            </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% if not appts %}
+                    <tr><td colspan="5" class="text-center text-muted">No bookings found.</td></tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    (function() {
+        // Realtime: jump to the right tab when an appointment notification arrives
+        if (window.appChannel) {
+            window.appChannel.bind('notification', function(n) {
+                if (n.type !== 'appointment') return;
+                var t = (n.title || '').toLowerCase();
+                if (t.indexOf('approved') !== -1) {
+                    location.href = '{{ url_for("booking.index", status="approved") }}';
+                } else {
+                    location.reload();  // declined/cancelled -> row leaves My Book
+                }
+            });
+        }
+        // Poll fallback: any new unread notification refreshes the list
+        var lastUnread = null;
+        setInterval(function() {
+            fetch('{{ url_for("notifications.badge") }}')
+                .then(function(r) { return r.json(); })
+                .then(function(d) {
+                    if (lastUnread !== null && d.notif > lastUnread) location.reload();
+                    lastUnread = d.notif;
+                }).catch(function() {});
+        }, 15000);
+    })();
+</script>
+{% endblock %}

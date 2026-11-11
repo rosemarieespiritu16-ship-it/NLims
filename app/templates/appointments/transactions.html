@@ -1,0 +1,210 @@
+{% extends 'base.html' %}
+{% block title %}Transactions - InventorPro{% endblock %}
+{% block content %}
+<div class="d-sm-flex align-items-center justify-content-between mb-4">
+    <h1 class="h3 mb-0 text-gray-800">Transactions</h1>
+</div>
+
+<div class="card shadow mb-4">
+    <div class="card-header py-3">
+        <h6 class="m-0 font-weight-bold text-primary">Filter</h6>
+    </div>
+    <div class="card-body">
+        <form method="get" class="form-inline">
+            <select name="method" class="form-control mr-2">
+                <option value="all" {% if method == 'all' %}selected{% endif %}>All Methods</option>
+                <option value="cash" {% if method == 'cash' %}selected{% endif %}>Cash</option>
+                <option value="gcash" {% if method == 'gcash' %}selected{% endif %}>GCash</option>
+            </select>
+            <input type="date" name="date_from" class="form-control mr-2" value="{{ date_from or '' }}">
+            <span class="mr-2">to</span>
+            <input type="date" name="date_to" class="form-control mr-2" value="{{ date_to or '' }}">
+            <button type="submit" class="btn btn-primary">Filter</button>
+            <a href="{{ url_for('appointments.transactions') }}" class="btn btn-secondary ml-2">Reset</a>
+        </form>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card border-left-primary shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Total Transactions</div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">{{ total_count }}</div>
+                    </div>
+                    <div class="col-auto"><i class="fas fa-receipt fa-2x text-gray-300"></i></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card border-left-success shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Cash ({{ cash_count }})</div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">₱{{ '{:,.2f}'.format(cash_total|float) }}</div>
+                    </div>
+                    <div class="col-auto"><i class="fas fa-money-bill-wave fa-2x text-gray-300"></i></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card border-left-info shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-info text-uppercase mb-1">GCash ({{ gcash_count }})</div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">₱{{ '{:,.2f}'.format(gcash_total|float) }}</div>
+                    </div>
+                    <div class="col-auto"><i class="fas fa-mobile-alt fa-2x text-gray-300"></i></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card border-left-warning shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Grand Total</div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">₱{{ '{:,.2f}'.format(grand_total|float) }}</div>
+                    </div>
+                    <div class="col-auto"><i class="fas fa-peso-sign fa-2x text-gray-300"></i></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-6">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Per Day</h6>
+            </div>
+            <div class="card-body">
+                <table class="table table-sm table-bordered">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Cash</th>
+                            <th>Cash Total</th>
+                            <th>GCash</th>
+                            <th>GCash Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for date, d in daily %}
+                        <tr>
+                            <td>{{ date }}</td>
+                            <td>{{ d.cash_count }}</td>
+                            <td>₱{{ '{:,.2f}'.format(d.cash_total) }}</td>
+                            <td>{{ d.gcash_count }}</td>
+                            <td>₱{{ '{:,.2f}'.format(d.gcash_total) }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Per Week</h6>
+            </div>
+            <div class="card-body">
+                <table class="table table-sm table-bordered">
+                    <thead>
+                        <tr>
+                            <th>Week</th>
+                            <th>Cash</th>
+                            <th>Cash Total</th>
+                            <th>GCash</th>
+                            <th>GCash Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for week, w in weekly %}
+                        <tr>
+                            <td>{{ week }}</td>
+                            <td>{{ w.cash_count }}</td>
+                            <td>₱{{ '{:,.2f}'.format(w.cash_total) }}</td>
+                            <td>{{ w.gcash_count }}</td>
+                            <td>₱{{ '{:,.2f}'.format(w.gcash_total) }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow mb-4">
+    <div class="card-header py-3">
+        <h6 class="m-0 font-weight-bold text-primary">All Completed Transactions</h6>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover table-sm">
+                <thead>
+                    <tr>
+                        <th>Date / Time</th>
+                        <th>Transaction #</th>
+                        <th>Code</th>
+                        <th>Client</th>
+                        <th>Source</th>
+                        <th>Items</th>
+                        <th>Method</th>
+                        <th>Total</th>
+                        <th>Paid</th>
+                        <th>Change</th>
+                        <th>GCash Ref</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in receipts %}
+                    <tr>
+                        <td>{{ r.created_at }}</td>
+                        <td>{{ r.transaction_number }}</td>
+                        <td>{{ r.appointment.appointment_code or '-' }}</td>
+                        <td>{{ r.appointment.client.full_name if r.appointment.client else 'Walk-in' }}</td>
+                        <td>
+                            {% if r.appointment.is_walkin %}<span class="badge badge-secondary">Walk-in</span>
+                            {% else %}<span class="badge badge-info">Client</span>{% endif %}
+                        </td>
+                        <td>
+                            {% if r.appointment.items %}
+                                {{ r.appointment.items|map(attribute='service.name')|reject('none')|list|join(', ') }}
+                                {{ r.appointment.items|map(attribute='package.name')|reject('none')|list|join(', ') }}
+                            {% else %}Products only{% endif %}
+                        </td>
+                        <td>
+                            {% if r.payment_method == 'cash' %}<span class="badge badge-success">Cash</span>
+                            {% elif r.payment_method == 'gcash' %}<span class="badge badge-info">GCash</span>
+                            {% else %}{{ r.payment_method }}{% endif %}
+                        </td>
+                        <td>₱{{ '{:,.2f}'.format(r.total|float) }}</td>
+                        <td>₱{{ '{:,.2f}'.format(r.amount_paid|float) }}</td>
+                        <td>₱{{ '{:,.2f}'.format(r.change_amount|float) }}</td>
+                        <td class="small">{{ r.reference or '-' }}</td>
+                        <td>
+                            <button type="button" class="btn btn-sm btn-outline-primary mb-1" data-toggle="modal" data-target="#txnModal{{ r.id }}" title="View details"><i class="fas fa-eye"></i></button>
+                            <a href="{{ url_for('appointments.receipt', id=r.id) }}" class="btn btn-sm btn-txn-out" title="Receipt"><i class="fas fa-receipt"></i></a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% include 'appointments/_txn_modal.html' %}
+{% endblock %}

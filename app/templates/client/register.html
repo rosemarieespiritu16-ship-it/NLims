@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Client Registration - InventorPro</title>
+    <link href="{{ url_for('static', filename='sb-admin-2/vendor/fontawesome-free/css/all.min.css') }}" rel="stylesheet" type="text/css">
+    <link href="https://fonts.googleapis.com/css?family=Nunito:200,300,400,600,700,800,900" rel="stylesheet">
+    <link href="{{ url_for('static', filename='sb-admin-2/css/sb-admin-2.min.css') }}" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
+    <style>
+        #image-container { display: none; margin-top: 15px; }
+        #image-container img { display: block; max-width: 100%; }
+        #video-preview { width: 100%; max-height: 300px; background: #000; border-radius: 5px; }
+    </style>
+</head>
+<body class="bg-gradient-primary">
+    <div class="container">
+        <div class="card o-hidden border-0 shadow-lg my-5">
+            <div class="card-body p-5">
+                <div class="text-center mb-4">
+                    <h1 class="h4 text-gray-900">InventorPro Client Registration</h1>
+                    <p class="text-muted">
+                        AIKELANTIK nail and lash supplies. Sign up to place orders and track your account.
+                        Admin approval is required before you can log in.
+                    </p>
+                </div>
+
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category }}">{{ message }}</div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+
+                <form id="register-form" method="post" enctype="multipart/form-data" class="user">
+                    <div class="form-group row">
+                        <div class="col-md-4">
+                            <input type="text" name="first_name" class="form-control form-control-user" placeholder="First Name" required>
+                        </div>
+                        <div class="col-md-4">
+                            <input type="text" name="middle_name" class="form-control form-control-user" placeholder="Middle Name">
+                        </div>
+                        <div class="col-md-4">
+                            <input type="text" name="last_name" class="form-control form-control-user" placeholder="Last Name" required>
+                        </div>
+                    </div>
+                    <div class="form-group row">
+                        <div class="col-md-6">
+                            <input type="date" name="birthday" class="form-control form-control-user" required>
+                        </div>
+                        <div class="col-md-6">
+                            <select name="gender" class="form-control form-control-user" required>
+                                <option value="">Gender</option>
+                                <option value="Male">Male</option>
+                                <option value="Female">Female</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group row">
+                        <div class="col-md-6">
+                            <input type="email" name="email" class="form-control form-control-user" placeholder="Email Address" required>
+                        </div>
+                        <div class="col-md-6">
+                            <input type="tel" name="phone" class="form-control form-control-user" placeholder="Phone Number" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <textarea name="address" class="form-control" rows="3" placeholder="Address" required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label class="small text-muted">Profile Picture</label>
+                        <div>
+                            <input type="file" id="file-input" name="image" class="d-none" accept="image/*">
+                            <button type="button" class="btn btn-outline-primary" data-toggle="modal" data-target="#photoModal">
+                                <i class="fas fa-camera"></i> Choose Photo
+                            </button>
+                            <small class="text-muted d-block mt-2">Upload a file, use your webcam, or select OBS Virtual Camera.</small>
+                        </div>
+                        <div id="image-container" style="margin-top:15px;">
+                            <img id="image-preview" src="#" alt="Preview">
+                            <div class="mt-3 text-center">
+                                <img id="cropped-preview" class="rounded-circle border" style="display:none; width:150px; height:150px; object-fit:cover;" alt="Cropped preview">
+                            </div>
+                            <div class="text-center mt-2">
+                                <button type="button" id="btn-choose" class="btn btn-success btn-sm">
+                                    <i class="fas fa-check"></i> Confirm Crop
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-user btn-block">Register</button>
+                </form>
+
+                <hr>
+                <div class="text-center">
+                    <a class="small" href="{{ url_for('auth.login') }}">Already registered? Login</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="photoModal" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Choose Profile Picture</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body text-center">
+                    <div id="source-buttons" class="mb-3">
+                        <button type="button" id="btn-upload" class="btn btn-outline-primary mr-2">
+                            <i class="fas fa-upload"></i> Upload File
+                        </button>
+                        <button type="button" id="btn-camera" class="btn btn-outline-success mr-2">
+                            <i class="fas fa-camera"></i> Use Camera
+                        </button>
+                    </div>
+
+                    <div id="camera-section" style="display:none;">
+                        <div class="form-group">
+                            <select id="camera-select" class="form-control form-control-sm mb-2" style="max-width: 400px; margin: 0 auto;">
+                                <option value="">Default Camera</option>
+                            </select>
+                        </div>
+                        <video id="video-preview" autoplay playsinline muted class="mb-2"></video>
+                        <canvas id="capture-canvas" style="display:none;"></canvas>
+                        <div>
+                            <button type="button" id="btn-capture" class="btn btn-primary">
+                                <i class="fas fa-dot-circle"></i> Capture
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='sb-admin-2/vendor/jquery/jquery.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='sb-admin-2/vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='sb-admin-2/vendor/jquery-easing/jquery.easing.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='sb-admin-2/js/sb-admin-2.min.js') }}"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
+    <script>
+        const fileInput = document.getElementById('file-input');
+        const preview = document.getElementById('image-preview');
+        const container = document.getElementById('image-container');
+        const form = document.getElementById('register-form');
+        const photoModal = $('#photoModal');
+        let cropper = null;
+
+        fileInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(ev) {
+                preview.src = ev.target.result;
+                preview.style.display = 'block';
+                container.style.display = 'block';
+                croppedPreview.style.display = 'none';
+                croppedPreview.src = '#';
+                btnChoose.innerHTML = '<i class="fas fa-check"></i> Confirm Crop';
+                btnChoose.classList.remove('btn-secondary');
+                btnChoose.classList.add('btn-success');
+                if (cropper) cropper.destroy();
+                cropper = new Cropper(preview, {
+                    aspectRatio: 1,
+                    viewMode: 1,
+                    autoCropArea: 1,
+                    responsive: true
+                });
+            };
+            reader.readAsDataURL(file);
+        });
+
+        const croppedPreview = document.getElementById('cropped-preview');
+        const btnChoose = document.getElementById('btn-choose');
+
+        btnChoose.addEventListener('click', function() {
+            if (!cropper) return;
+            cropper.getCroppedCanvas({ width: 300, height: 300 }).toBlob(function(blob) {
+                const file = new File([blob], 'profile.jpg', { type: 'image/jpeg' });
+                const dt = new DataTransfer();
+                dt.items.add(file);
+                fileInput.files = dt.files;
+                croppedPreview.src = URL.createObjectURL(blob);
+                croppedPreview.style.display = 'inline-block';
+                if (cropper) {
+                    cropper.destroy();
+                    cropper = null;
+                }
+                preview.style.display = 'none';
+                btnChoose.innerHTML = '<i class="fas fa-check"></i> Cropped Selected';
+                btnChoose.classList.remove('btn-success');
+                btnChoose.classList.add('btn-secondary');
+            }, 'image/jpeg');
+        });
+
+        document.getElementById('btn-upload').addEventListener('click', function() {
+            photoModal.modal('hide');
+            fileInput.click();
+        });
+
+        const video = document.getElementById('video-preview');
+        const canvas = document.getElementById('capture-canvas');
+        const cameraSelect = document.getElementById('camera-select');
+        let stream = null;
+
+        document.getElementById('btn-camera').addEventListener('click', async function() {
+            document.getElementById('source-buttons').style.display = 'none';
+            document.getElementById('camera-section').style.display = 'block';
+            try {
+                await startCamera();
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const videoDevices = devices.filter(d => d.kind === 'videoinput');
+                cameraSelect.innerHTML = '';
+                videoDevices.forEach(device => {
+                    const option = document.createElement('option');
+                    option.value = device.deviceId;
+                    option.text = device.label || 'Camera';
+                    cameraSelect.appendChild(option);
+                });
+            } catch (err) {
+                alert('Could not access camera: ' + err.message);
+            }
+        });
+
+        cameraSelect.addEventListener('change', async function() {
+            await startCamera(cameraSelect.value);
+        });
+
+        async function startCamera(deviceId) {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+            const constraints = {
+                video: deviceId ? { deviceId: { exact: deviceId } } : true,
+                audio: false
+            };
+            try {
+                stream = await navigator.mediaDevices.getUserMedia(constraints);
+                video.srcObject = stream;
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        document.getElementById('btn-capture').addEventListener('click', function() {
+            if (!stream) return;
+            canvas.width = video.videoWidth || 640;
+            canvas.height = video.videoHeight || 480;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            canvas.toBlob(function(blob) {
+                const file = new File([blob], 'camera.jpg', { type: 'image/jpeg' });
+                const dt = new DataTransfer();
+                dt.items.add(file);
+                fileInput.files = dt.files;
+                const event = new Event('change');
+                fileInput.dispatchEvent(event);
+                photoModal.modal('hide');
+                stopStream();
+            }, 'image/jpeg');
+        });
+
+        function stopStream() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+            }
+        }
+
+        photoModal.on('hidden.bs.modal', function () {
+            stopStream();
+            document.getElementById('source-buttons').style.display = 'block';
+            document.getElementById('camera-section').style.display = 'none';
+        });
+    </script>
+</body>
+</html>

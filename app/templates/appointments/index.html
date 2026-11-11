@@ -1,0 +1,368 @@
+{% extends 'base.html' %}
+{% block title %}Appointments - InventorPro{% endblock %}
+{% block content %}
+<div class="d-sm-flex align-items-center justify-content-between mb-1">
+    <div>
+        <h1 class="h3 mb-0 text-gray-800">Client Appointments</h1>
+        <p class="text-muted small mb-0">Online booking requests and upcoming appointments</p>
+    </div>
+</div>
+<hr class="mt-2 mb-3">
+
+{% macro svc_chips(a) %}
+    {% for it in a.items %}
+        {% if it.service %}<span class="badge badge-primary mr-1">{{ it.service.name }}{% if it.qty and it.qty > 1 %} x{{ it.qty }}{% endif %}</span>{% endif %}
+        {% if it.package %}<span class="badge badge-success mr-1">{{ it.package.name }}{% if it.qty and it.qty > 1 %} x{{ it.qty }}{% endif %}</span>{% endif %}
+    {% endfor %}
+    {% if not a.items %}<span class="text-muted small">Not set</span>{% endif %}
+{% endmacro %}
+
+{% set pending = appts|selectattr('status','equalto','pending')|list %}
+{% set confirmed = appts|selectattr('status','equalto','confirmed')|list %}
+
+<div class="mb-3">
+    <span class="badge badge-warning px-3 py-2 mr-2"><i class="fas fa-clock mr-1"></i>{{ counts.pending }} Pending request{{ 's' if counts.pending != 1 }}</span>
+    <span class="badge badge-info px-3 py-2 mr-2"><i class="fas fa-check-circle mr-1"></i>{{ counts.confirmed }} Confirmed</span>
+    <span class="badge badge-secondary px-3 py-2 mr-2"><i class="fas fa-file-alt mr-1"></i>{{ counts.draft }} Draft{{ 's' if counts.draft != 1 }}</span>
+    <span class="badge badge-light px-3 py-2 border"><i class="fas fa-calendar-day mr-1"></i>{{ counts.today }} Today</span>
+</div>
+
+<ul class="nav nav-pills mb-3">
+    <li class="nav-item"><a class="nav-link {% if status_filter == 'pending' %}active{% endif %}" href="{{ url_for('appointments.index', status='pending') }}"><i class="fas fa-inbox mr-1"></i>Requests</a></li>
+    <li class="nav-item"><a class="nav-link {% if status_filter == 'confirmed' %}active{% endif %}" href="{{ url_for('appointments.index', status='confirmed') }}"><i class="fas fa-check mr-1"></i>Confirmed</a></li>
+    <li class="nav-item"><a class="nav-link {% if status_filter == 'draft' %}active{% endif %}" href="{{ url_for('appointments.index', status='draft') }}"><i class="fas fa-file-alt mr-1"></i>Drafts</a></li>
+    <li class="nav-item"><a class="nav-link {% if status_filter == 'all' %}active{% endif %}" href="{{ url_for('appointments.index', status='all') }}"><i class="fas fa-list mr-1"></i>All Active</a></li>
+    <li class="nav-item"><a class="nav-link {% if status_filter == 'no_show' %}active{% endif %}" href="{{ url_for('appointments.index', status='no_show') }}"><i class="fas fa-user-slash mr-1"></i>No-Show</a></li>
+</ul>
+
+{% if status_filter == 'pending' %}
+    {# --- Request cards --- #}
+    <div class="row">
+        {% for a in pending %}
+        <div class="col-lg-6 col-xl-4 mb-3">
+            <div class="card shadow-sm h-100 border-left-warning">
+                <div class="card-body py-3">
+                    <div class="d-flex align-items-center mb-2">
+                        {% if a.client and a.client.image %}
+                            <img src="/assets/uploads/{{ a.client.image }}" class="rounded-circle mr-2" style="width:42px;height:42px;object-fit:cover" alt="">
+                        {% else %}
+                            <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center mr-2 font-weight-bold" style="width:42px;height:42px;font-size:15px">{{ ((a.client.first_name or 'C')[:1] + (a.client.last_name or '')[:1]).upper() if a.client else 'C' }}</div>
+                        {% endif %}
+                        <div style="min-width:0">
+                            <div class="font-weight-bold text-gray-800 text-truncate">{{ a.client.full_name if a.client else 'Client' }}</div>
+                            <small class="text-muted d-block text-truncate">{{ a.client.email if a.client }}</small>
+                        </div>
+                        <span class="badge badge-warning ml-auto">Pending</span>
+                    </div>
+                    <div class="mb-2">
+                        <i class="fas fa-calendar-alt text-muted mr-1"></i><strong>{{ a.appointment_date.strftime('%a, %b %d %Y') }}</strong>
+                        {% if a.appointment_code %}<span class="badge badge-light border ml-1">{{ a.appointment_code }}</span>{% endif %}
+                    </div>
+                    <div class="mb-2 small">
+                        {% for it in a.items %}
+                        <div class="d-flex align-items-center justify-content-between py-1 border-bottom">
+                            <span class="text-truncate mr-2">
+                                <span class="badge badge-{{ 'primary' if it.service else 'success' }} mr-1">{{ 'Service' if it.service else 'Package' }}</span>
+                                {{ it.service.name if it.service else it.package.name if it.package else 'Item' }}{% if it.quantity > 1 %} x{{ it.quantity }}{% endif %}
+                            </span>
+                            <form method="post" action="{{ url_for('appointments.remove_item', id=a.id) }}" onsubmit="return confirm('Remove this item? The client will be notified it is unavailable.')">
+                                <input type="hidden" name="kind" value="item"><input type="hidden" name="row_id" value="{{ it.id }}">
+                                <button type="submit" class="btn btn-sm text-danger p-0 border-0" title="Remove — not available"><i class="fas fa-times-circle"></i></button>
+                            </form>
+                        </div>
+                        {% endfor %}
+                        {% for ad in a.addons %}
+                        <div class="d-flex align-items-center justify-content-between py-1 border-bottom">
+                            <span class="text-truncate mr-2">
+                                <span class="badge badge-secondary mr-1">Product</span>
+                                {{ ad.product.name if ad.product else 'Product' }}{% if ad.quantity > 1 %} x{{ ad.quantity }}{% endif %}
+                                {% if ad.product %}
+                                    {% if ad.product.quantity <= 0 %}
+                                        <span class="badge badge-danger">stock: 0</span>
+                                    {% else %}
+                                        <span class="badge badge-light border text-muted">stock: {{ ad.product.quantity }}</span>
+                                    {% endif %}
+                                {% endif %}
+                            </span>
+                            <form method="post" action="{{ url_for('appointments.remove_item', id=a.id) }}" onsubmit="return confirm('Remove this item? The client will be notified it is unavailable.')">
+                                <input type="hidden" name="kind" value="addon"><input type="hidden" name="row_id" value="{{ ad.id }}">
+                                <button type="submit" class="btn btn-sm text-danger p-0 border-0" title="Remove — not available"><i class="fas fa-times-circle"></i></button>
+                            </form>
+                        </div>
+                        {% endfor %}
+                        {% if not a.items and not a.addons %}<span class="text-muted">No items selected</span>{% endif %}
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="font-weight-bold text-gray-900">₱{{ '{:,.2f}'.format(totals[a.id]|float) }}</span>
+                        {% if a.reservation_paid_at %}<span class="badge badge-success"><i class="fas fa-check-circle mr-1"></i>Reserved ₱{{ '{:,.2f}'.format(a.reservation_fee|float) }}</span>{% endif %}
+                    </div>
+                </div>
+                {% if oos[a.id] %}
+                <div class="px-3 pb-1"><small class="text-danger"><i class="fas fa-exclamation-triangle mr-1"></i>Remove out-of-stock items to approve this booking.</small></div>
+                {% endif %}
+                <div class="card-footer bg-white d-flex py-2">
+                    {% if oos[a.id] %}
+                    <button type="button" class="btn btn-sm btn-success btn-block flex-fill mr-1" disabled title="Remove out-of-stock items first"><i class="fas fa-check mr-1"></i>Approve</button>
+                    {% else %}
+                    <form action="{{ url_for('appointments.confirm', id=a.id) }}" method="post" class="flex-fill mr-1">
+                        <button type="submit" class="btn btn-sm btn-success btn-block"><i class="fas fa-check mr-1"></i>Approve</button>
+                    </form>
+                    {% endif %}
+                    {% if not a.reservation_paid_at %}
+                    <form action="{{ url_for('appointments.reject', id=a.id) }}" method="post" class="flex-fill mr-1" onsubmit="return confirm('Decline this booking?')">
+                        <button type="submit" class="btn btn-sm btn-outline-danger btn-block"><i class="fas fa-times mr-1"></i>Decline</button>
+                    </form>
+                    {% else %}
+                    <span class="flex-fill mr-1 text-center small text-success align-self-center"><i class="fas fa-lock mr-1"></i>Paid</span>
+                    {% endif %}
+                    {% if a.client_id %}
+                    <a href="{{ url_for('messages.index', client=a.client_id, appointment=a.id) }}" class="btn btn-sm btn-outline-primary" title="Chat with client"><i class="fas fa-comment-dots"></i></a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% if not pending %}
+    <div class="card shadow-sm"><div class="card-body text-center text-muted py-5">
+        <i class="fas fa-inbox fa-3x mb-3 text-gray-300"></i>
+        <p class="mb-0">No pending requests. New client bookings will appear here.</p>
+    </div></div>
+    {% endif %}
+
+{% else %}
+    {# --- Confirmed / All Active table --- #}
+    <div class="card shadow mb-4">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="thead-light">
+                        <tr>
+                            <th class="pl-4">Date</th>
+                            <th>Client</th>
+                            <th>Worker</th>
+                            <th>Code</th>
+                            <th>Service / Package</th>
+                            <th class="text-right">Amount</th>
+                            <th>Status</th>
+                            <th class="text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for a in appts %}
+                        <tr>
+                            <td class="pl-4">{{ a.appointment_date.strftime('%b %d, %Y') }}</td>
+                            <td>
+                                <div class="font-weight-bold">{{ a.client.full_name if a.client else 'Walk-in' }}</div>
+                                <small class="text-muted">{{ a.client.email if a.client }}</small>
+                            </td>
+                            <td>{{ a.worker.name if a.worker else '-' }}</td>
+                            <td>{% if a.appointment_code %}<span class="badge badge-light border">{{ a.appointment_code }}</span>{% else %}-{% endif %}</td>
+                            <td>{{ svc_chips(a) }}</td>
+                            <td class="text-right font-weight-bold">₱{{ '{:,.2f}'.format(totals[a.id]|float) }}</td>
+                            <td>
+                                {% if a.status == 'pending' %}<span class="badge badge-warning">Pending</span>
+                                {% elif a.status == 'confirmed' %}<span class="badge badge-info">Confirmed</span>
+                                {% elif a.status == 'draft' %}<span class="badge badge-secondary">Draft</span>
+                                {% elif a.status == 'no_show' %}<span class="badge badge-danger">No-Show</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                <button type="button" class="btn btn-sm btn-outline-secondary mb-1" data-toggle="modal" data-target="#apptModal{{ a.id }}" title="View details"><i class="fas fa-eye"></i></button>
+                                {% if a.client_id %}
+                                    <a href="{{ url_for('messages.index', client=a.client_id, appointment=a.id) }}" class="btn btn-sm btn-outline-primary mb-1" title="Chat about this booking"><i class="fas fa-comment-dots"></i></a>
+                                {% endif %}
+                                {% if a.status == 'pending' %}
+                                    <form action="{{ url_for('appointments.confirm', id=a.id) }}" method="post" style="display:inline">
+                                        <button type="submit" class="btn btn-sm btn-success mb-1">Approve</button>
+                                    </form>
+                                    {% if not a.reservation_paid_at %}
+                                    <form action="{{ url_for('appointments.reject', id=a.id) }}" method="post" style="display:inline" onsubmit="return confirm('Decline this booking?')">
+                                        <button type="submit" class="btn btn-sm btn-danger mb-1">Decline</button>
+                                    </form>
+                                    {% else %}
+                                    <span class="badge badge-success mb-1"><i class="fas fa-lock mr-1"></i>Paid</span>
+                                    {% endif %}
+                                {% elif a.status == 'confirmed' %}
+                                    {% if not a.is_walkin and not a.worker_id %}
+                                    <button type="button" class="btn btn-sm btn-warning mb-1" data-toggle="modal" data-target="#assignWorker{{ a.id }}">Assign Worker</button>
+                                    <div class="modal fade" id="assignWorker{{ a.id }}" tabindex="-1" role="dialog" aria-hidden="true">
+                                        <div class="modal-dialog modal-sm modal-dialog-centered" role="document">
+                                            <div class="modal-content">
+                                                <div class="modal-header py-2">
+                                                    <h6 class="modal-title">Assign Worker</h6>
+                                                    <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+                                                </div>
+                                                <form method="post" action="{{ url_for('appointments.assign_worker', id=a.id) }}?next={{ url_for('appointments.pos', id=a.id)|urlencode }}">
+                                                    <div class="modal-body text-left">
+                                                        <small class="text-muted d-block mb-2">Online booking requires a worker before starting the transaction.</small>
+                                                        <select name="worker_id" class="form-control" required>
+                                                            <option value="">Select worker...</option>
+                                                            {% for w in workers %}
+                                                            <option value="{{ w.id }}" {% if w.id in busy_ids %}disabled{% endif %}>{{ w.name }}{% if w.id in busy_ids %} (busy){% endif %}</option>
+                                                            {% endfor %}
+                                                        </select>
+                                                    </div>
+                                                    <div class="modal-footer py-2">
+                                                        <button type="submit" class="btn btn-sm btn-primary btn-block">Assign &amp; Start POS</button>
+                                                    </div>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% else %}
+                                    <a href="{{ url_for('appointments.pos', id=a.id) }}" class="btn btn-sm btn-primary mb-1">POS</a>
+                                    {% endif %}
+                                    {% if a.reservation_paid_at or a.appointment_date <= now.date() %}
+                                    <form action="{{ url_for('appointments.no_show', id=a.id) }}" method="post" style="display:inline" onsubmit="return confirm('Mark as no-show?{% if a.reservation_paid_at %} The reservation fee will be forfeited (non-refundable).{% endif %}')">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger mb-1">No-Show</button>
+                                    </form>
+                                    {% endif %}
+                                    <form action="{{ url_for('appointments.void', id=a.id) }}" method="post" style="display:inline" onsubmit="return confirm('Void?')">
+                                        <button type="submit" class="btn btn-sm btn-dark mb-1">Void</button>
+                                    </form>
+                                {% elif a.status == 'draft' %}
+                                    <a href="{{ url_for('appointments.pos', id=a.id) }}" class="btn btn-sm btn-primary mb-1"><i class="fas fa-play mr-1"></i>Resume</a>
+                                    <form action="{{ url_for('appointments.void', id=a.id) }}" method="post" style="display:inline" onsubmit="return confirm('Discard this draft?')">
+                                        <button type="submit" class="btn btn-sm btn-dark mb-1">Discard</button>
+                                    </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% if not appts %}
+                        <tr><td colspan="8" class="text-center text-muted py-5">
+                            <i class="fas fa-calendar-check fa-2x mb-2 text-gray-300 d-block"></i>No {{ status_filter }} appointments.
+                        </td></tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+{% endif %}
+
+{# --- Booking detail modals --- #}
+{% for a in appts %}
+<div class="modal fade txn-modal" id="apptModal{{ a.id }}" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="txn-head">
+                <div class="d-flex align-items-center">
+                    <div class="txn-head-icon"><i class="fas fa-calendar-check"></i></div>
+                    <div>
+                        <span class="txn-eyebrow">APPOINTMENT</span>
+                        <h4 class="mb-0 font-weight-bold">{{ a.appointment_code or '—' }}</h4>
+                        <small>Booked for {{ a.appointment_date.strftime('%b %d, %Y') }}</small>
+                    </div>
+                </div>
+                <div class="d-flex align-items-center">
+                    <span class="txn-status">
+                        {% if a.status == 'pending' %}<i class="fas fa-circle mr-1" style="color:#D5A45A"></i>Pending
+                        {% elif a.status == 'confirmed' %}<i class="fas fa-circle mr-1" style="color:#36b9cc"></i>Confirmed
+                        {% elif a.status == 'draft' %}<i class="fas fa-circle mr-1" style="color:#806F6A"></i>Draft
+                        {% elif a.status == 'no_show' %}<i class="fas fa-circle mr-1" style="color:#B85C68"></i>No-Show
+                        {% else %}{{ a.status|capitalize }}{% endif %}
+                    </span>
+                    <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+                </div>
+            </div>
+
+            <div class="txn-info">
+                <div>
+                    <div class="txn-info-ico"><i class="fas fa-user"></i></div>
+                    <div>
+                        <small>CLIENT</small>
+                        <div class="v">{{ a.client.full_name if a.client else 'Walk-in' }}</div>
+                        <div class="s">{{ a.client.email if a.client else '—' }}</div>
+                    </div>
+                </div>
+                <div>
+                    <div class="txn-info-ico"><i class="fas fa-calendar-alt"></i></div>
+                    <div>
+                        <small>APPOINTMENT DATE</small>
+                        <div class="v">{{ a.appointment_date.strftime('%a, %b %d %Y') }}</div>
+                        <div class="s">{{ 'Walk-in' if a.is_walkin else 'Online booking' }}</div>
+                    </div>
+                </div>
+                <div>
+                    <div class="txn-info-ico"><i class="fas fa-user-tie"></i></div>
+                    <div>
+                        <small>WORKER</small>
+                        <div class="v">{{ a.worker.name if a.worker else 'Not assigned' }}</div>
+                        <div class="s">{{ 'Paid reservation' if a.reservation_paid_at else 'No reservation fee' }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-body">
+                <div class="txn-card">
+                    <div class="txn-card-head">
+                        <div class="ic"><i class="fas fa-list"></i></div>
+                        <div><h6>ITEMS</h6><small>Services, packages and products</small></div>
+                    </div>
+                    <table class="items-table no-dt">
+                        <thead><tr><th>#</th><th>Item</th><th>Type</th><th class="text-center">Qty</th><th class="text-right">Price</th><th class="text-right">Subtotal</th></tr></thead>
+                        <tbody>
+                            {% for it in a.items %}
+                            <tr>
+                                <td>{{ loop.index }}</td>
+                                <td>{{ it.service.name if it.service else it.package.name if it.package else 'Item' }}</td>
+                                <td><span class="badge badge-{{ 'primary' if it.service else 'success' }}">{{ 'Service' if it.service else 'Package' }}</span></td>
+                                <td class="text-center">{{ it.quantity }}</td>
+                                <td class="text-right">₱{{ '{:,.2f}'.format(it.price|float) }}</td>
+                                <td class="text-right">₱{{ '{:,.2f}'.format(it.price|float * it.quantity) }}</td>
+                            </tr>
+                            {% endfor %}
+                            {% for ad in a.addons %}
+                            <tr>
+                                <td>{{ loop.index + (a.items|length) }}</td>
+                                <td>{{ ad.product.name if ad.product else 'Product' }}</td>
+                                <td><span class="badge badge-secondary">Product</span></td>
+                                <td class="text-center">{{ ad.quantity }}</td>
+                                <td class="text-right">₱{{ '{:,.2f}'.format(ad.price|float) }}</td>
+                                <td class="text-right">₱{{ '{:,.2f}'.format(ad.price|float * ad.quantity) }}</td>
+                            </tr>
+                            {% endfor %}
+                            {% if not a.items and not a.addons %}
+                            <tr><td colspan="6" class="text-center text-muted">No items yet.</td></tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="txn-card mt-3">
+                    <div class="txn-card-head">
+                        <div class="ic"><i class="fas fa-credit-card"></i></div>
+                        <div><h6>AMOUNTS</h6><small>Totals and reservation</small></div>
+                    </div>
+                    <div class="pay-row">
+                        <span>Items total</span>
+                        <span class="font-weight-bold">₱{{ '{:,.2f}'.format(totals[a.id]|float) }}</span>
+                    </div>
+                    {% if a.reservation_paid_at %}
+                    <div class="pay-row">
+                        <span>Reservation fee — {{ (a.reservation_method or 'gcash')|upper }}
+                            <small>Paid {{ a.reservation_paid_at.strftime('%b %d, %Y %I:%M %p') }}</small>
+                        </span>
+                        <span class="text-success">₱{{ '{:,.2f}'.format(a.reservation_fee|float) }}</span>
+                    </div>
+                    <div class="pay-row" style="border-bottom:0">
+                        <span>Balance due at checkout</span>
+                        <span>₱{{ '{:,.2f}'.format(totals[a.id]|float - a.reservation_fee|float) }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="modal-footer txn-foot">
+                {% if a.client_id %}
+                <a href="{{ url_for('messages.index', client=a.client_id, appointment=a.id) }}" class="btn btn-txn-out"><i class="fas fa-comment-dots mr-1"></i>Message</a>
+                {% endif %}
+                <button type="button" class="btn btn-txn ml-auto" data-dismiss="modal"><i class="fas fa-times mr-1"></i>Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
+{% endblock %}

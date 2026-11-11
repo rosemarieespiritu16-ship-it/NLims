@@ -1,0 +1,117 @@
+<ul class="navbar-nav bg-gradient-primary sidebar sidebar-dark accordion" id="accordionSidebar">
+    <a class="sidebar-brand d-flex align-items-center justify-content-center" href="{{ url_for('dashboard.index') }}">
+        <img src="{{ url_for('static', filename='logo.png') }}" alt="InventroPro"
+             style="height:56px;object-fit:contain;margin:8px auto;border-radius:10px;">
+    </a>
+    <hr class="sidebar-divider my-0">
+    <li class="nav-item active">
+        <a class="nav-link" href="{{ url_for('dashboard.index') }}">
+            <i class="fas fa-fw fa-tachometer-alt"></i>
+            <span>Dashboard</span>
+        </a>
+    </li>
+    <hr class="sidebar-divider">
+
+    {% if current_user.is_authenticated and current_user.role == 'client' %}
+    {# Client-only menu #}
+    {% if not session.get('impersonator_id') %}
+    <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('booking.new') }}">
+            <i class="fas fa-fw fa-calendar-plus"></i>
+            <span>Book Appointment</span>
+        </a>
+    </li>
+    {% endif %}
+    <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('booking.index') }}">
+            <i class="fas fa-fw fa-book"></i>
+            <span>My Bookings</span>
+        </a>
+    </li>
+    {% if not session.get('impersonator_id') %}
+    <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('messages.index') }}">
+            <i class="fas fa-fw fa-comments"></i>
+            <span>Messages</span>
+        </a>
+    </li>
+    {% endif %}
+    {% else %}
+    {# Admin / Staff menu #}
+    <div class="sidebar-heading">Catalog</div>
+    <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('services.index') }}">
+            <i class="fas fa-fw fa-cut"></i>
+            <span>Services</span>
+        </a>
+    </li>
+    <hr class="sidebar-divider">
+    <div class="sidebar-heading">Manage</div>
+    <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('schedule.index') }}">
+            <i class="fas fa-fw fa-calendar-alt"></i>
+            <span>Schedule</span>
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseAppointments" aria-expanded="false" aria-controls="collapseAppointments">
+            <i class="fas fa-fw fa-calendar-check"></i>
+            <span>Appointments</span>
+        </a>
+        <div id="collapseAppointments" class="collapse" data-parent="#accordionSidebar">
+            <div class="bg-white py-2 collapse-inner rounded">
+                <a class="collapse-item d-flex justify-content-between align-items-center" href="{{ url_for('appointments.index') }}">
+                    <span><i class="fas fa-calendar fa-sm mr-2 text-primary"></i>Appointments</span>
+                    {% if pending_appt_count %}<span class="badge badge-warning badge-pill">{{ pending_appt_count }}</span>{% endif %}
+                </a>
+                <a class="collapse-item" href="{{ url_for('appointments.walkins') }}"><i class="fas fa-cash-register fa-sm mr-2 text-success"></i>POS Sessions</a>
+                <a class="collapse-item" href="{{ url_for('appointments.transactions') }}"><i class="fas fa-receipt fa-sm mr-2 text-warning"></i>Transactions</a>
+                <a class="collapse-item" href="{{ url_for('appointments.voided') }}"><i class="fas fa-ban fa-sm mr-2 text-danger"></i>Voided</a>
+                <a class="collapse-item" href="{{ url_for('appointments.ledger') }}"><i class="fas fa-book-open fa-sm mr-2 text-info"></i>Ledger</a>
+            </div>
+        </div>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('clients.index') }}">
+            <i class="fas fa-fw fa-users"></i>
+            <span>Clients</span>
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('messages.index') }}">
+            <i class="fas fa-fw fa-comments"></i>
+            <span>Messages</span>
+            {% if unread_msg_count %}<span class="badge badge-danger badge-counter ml-1">{{ unread_msg_count }}</span>{% endif %}
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('workers.index') }}">
+            <i class="fas fa-fw fa-user-tie"></i>
+            <span>Workers</span>
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('users.index') }}">
+            <i class="fas fa-fw fa-user-shield"></i>
+            <span>Users</span>
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('settings.index') }}">
+            <i class="fas fa-fw fa-cog"></i>
+            <span>Settings</span>
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('audit.index') }}">
+            <i class="fas fa-fw fa-clipboard-list"></i>
+            <span>Audit Log</span>
+        </a>
+    </li>
+    {% endif %}
+
+    <hr class="sidebar-divider d-none d-md-block">
+    <div class="text-center d-none d-md-inline">
+        <button class="rounded-circle border-0" id="sidebarToggle"></button>
+    </div>
+</ul>

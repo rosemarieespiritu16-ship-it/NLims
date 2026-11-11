@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% block title %}GCash Confirm - InventorPro{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6 text-center">
+        <div class="card shadow mb-4">
+            <div class="card-header bg-gradient-primary text-white py-3">
+                <h5 class="m-0 font-weight-bold">GCash Payment Confirmation</h5>
+            </div>
+            <div class="card-body">
+                <p class="mb-2">Appointment Code: <strong>{{ appt.appointment_code }}</strong></p>
+                <p class="mb-2">Total: <strong>₱{{ '{:,.2f}'.format(grand_total) }}</strong></p>
+                <p class="text-muted small mb-4">Click below to confirm payment received.</p>
+                <form action="{{ url_for('appointments.gcash_success', id=appt.id) }}" method="post">
+                    <button type="submit" class="btn btn-success" onclick="return confirm('Confirm GCash payment received?')">Confirm Payment & Complete</button>
+                </form>
+                <a href="{{ url_for('appointments.pos', id=appt.id) }}" class="btn btn-secondary btn-sm mt-3">Back to POS</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

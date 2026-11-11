@@ -1,0 +1,264 @@
+{% extends 'base.html' %}
+{% block title %}Receipt - InventorPro{% endblock %}
+{% block extra_css %}
+<style>
+    .receipt-box {
+        max-width: 720px;
+        margin: 0 auto;
+        background: #fff;
+        border: 1px solid #ddd;
+        padding: 30px 34px;
+        font-family: Arial, Helvetica, sans-serif;
+        color: #000;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    .receipt-header {
+        text-align: center;
+        border-bottom: 2px solid #000;
+        padding-bottom: 12px;
+        margin-bottom: 14px;
+    }
+    .receipt-logo {
+        max-width: 210px;
+        margin-bottom: 6px;
+    }
+    .receipt-header p {
+        margin: 2px 0;
+        font-size: 0.85rem;
+    }
+    .receipt-info {
+        font-size: 0.85rem;
+        margin-bottom: 14px;
+        display: flex;
+        justify-content: space-between;
+        gap: 30px;
+    }
+    .receipt-info > div {
+        flex: 1;
+    }
+    .receipt-info .info-row {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 3px;
+    }
+    .receipt-table {
+        width: 100%;
+        font-size: 0.85rem;
+        border-collapse: collapse;
+    }
+    .receipt-table th,
+    .receipt-table td {
+        padding: 6px 4px;
+        border-bottom: 1px solid #eee;
+        vertical-align: top;
+    }
+    .receipt-table th {
+        border-bottom: 1.5px solid #000;
+        text-align: left;
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+    }
+    .receipt-table td.text-right, .receipt-table th.text-right { text-align: right; }
+    .receipt-table td.text-center, .receipt-table th.text-center { text-align: center; }
+    .item-type {
+        font-size: 0.7rem;
+        padding: 1px 7px;
+        border: 1px solid #999;
+        border-radius: 8px;
+    }
+    .receipt-total {
+        margin: 14px 0;
+        padding: 10px 0 4px;
+        border-top: 1.5px solid #000;
+        font-size: 0.88rem;
+    }
+    .receipt-total .tr-row {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 4px;
+    }
+    .receipt-total .grand {
+        border-top: 1px dashed #999;
+        padding-top: 6px;
+        margin-top: 6px;
+        font-size: 1.05rem;
+    }
+    .receipt-footer {
+        text-align: center;
+        font-size: 0.78rem;
+        margin-top: 18px;
+    }
+    .receipt-sign {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 34px;
+        font-size: 0.78rem;
+    }
+    .receipt-sign > div {
+        width: 44%;
+        text-align: center;
+    }
+    .receipt-sign .line {
+        border-top: 1px solid #000;
+        padding-top: 4px;
+    }
+    .receipt-actions {
+        text-align: center;
+        margin-top: 25px;
+    }
+    @media print {
+        @page {
+            size: 8.5in 11in;
+            margin: 6mm;
+        }
+        html, body {
+            background: #fff !important;
+            margin: 0;
+            padding: 0;
+        }
+        .alert, .receipt-actions, .sidebar, .topbar, .breadcrumb, .btn-print-hide,
+        .sticky-footer, .scroll-to-top, nav.navbar, .alert-warning {
+            display: none !important;
+        }
+        #wrapper, #content-wrapper, #content, .container-fluid {
+            display: block !important;
+            width: 100% !important;
+            padding: 0 !important;
+            margin: 0 !important;
+        }
+        .receipt-box {
+            box-shadow: none;
+            border: none;
+            width: 100%;
+            max-width: 100%;
+            max-height: 5.35in;
+            overflow: hidden;
+            margin: 0;
+            padding: 0;
+        }
+        .receipt-logo { max-width: 32mm; margin-bottom: 2px; }
+        .receipt-header { padding-bottom: 4px; margin-bottom: 6px; }
+        .receipt-header p { font-size: 7.5pt; margin: 1px 0; }
+        .receipt-info { font-size: 7.5pt; margin-bottom: 6px; }
+        .receipt-info .info-row { margin-bottom: 1px; }
+        .receipt-table { font-size: 7.5pt; }
+        .receipt-table th, .receipt-table td { padding: 2px 2px; }
+        .item-type { font-size: 6pt; padding: 0 5px; }
+        .receipt-total { font-size: 7.5pt; margin: 6px 0; padding-top: 4px; }
+        .receipt-total .tr-row { margin-bottom: 2px; }
+        .receipt-total .grand { font-size: 8.5pt; margin-top: 4px; padding-top: 4px; }
+        .receipt-sign { margin-top: 10px; font-size: 7pt; }
+        .receipt-footer { font-size: 6.5pt; margin-top: 6px; }
+        .receipt-footer p { margin: 1px 0; }
+    }
+</style>
+{% endblock %}
+{% block content %}
+<div class="d-sm-flex align-items-center justify-content-between mb-4 receipt-actions">
+    <h1 class="h3 mb-0 text-gray-800 d-none d-sm-inline-block">Receipt</h1>
+</div>
+
+{% set appt = receipt.appointment %}
+{% set res_credit = (appt.reservation_fee|float) if appt.reservation_paid_at else 0 %}
+
+<div class="receipt-box" id="receipt-print">
+    <div class="receipt-header">
+        <img src="{{ url_for('static', filename='blacklogo.png') }}" alt="InventroPro" class="receipt-logo">
+        <p class="font-weight-bold">AIKELANTIK Nail &amp; Lash Supplies</p>
+        <p>OFFICIAL RECEIPT</p>
+    </div>
+
+    <div class="receipt-info">
+        <div>
+            <div class="info-row"><span><strong>Trans #</strong></span><span>{{ receipt.transaction_number }}</span></div>
+            <div class="info-row"><span><strong>Date</strong></span><span>{{ receipt.created_at|ph_datetime }}</span></div>
+            <div class="info-row"><span><strong>Payment</strong></span><span>{{ receipt.payment_method|upper }}</span></div>
+            <div class="info-row"><span><strong>Worker</strong></span><span>{{ appt.worker.name if appt.worker else 'Admin' }}</span></div>
+        </div>
+        <div>
+            <div class="info-row"><span><strong>Client</strong></span><span>{{ appt.client.full_name if appt.client else 'Walk-in Guest' }}</span></div>
+            <div class="info-row"><span><strong>Phone</strong></span><span>{{ appt.client.phone if appt.client and appt.client.phone else '—' }}</span></div>
+            <div class="info-row"><span><strong>Type</strong></span><span>{{ 'Walk-in' if appt.is_walkin else 'Appointment' }}</span></div>
+            {% if appt.appointment_code %}
+            <div class="info-row"><span><strong>Code</strong></span><span>{{ appt.appointment_code }}</span></div>
+            {% endif %}
+            <div class="info-row"><span><strong>Date Printed</strong></span><span>{{ now|ph_datetime }}</span></div>
+        </div>
+    </div>
+
+    <table class="receipt-table">
+        <thead>
+            <tr>
+                <th>Item</th>
+                <th class="text-center">Type</th>
+                <th class="text-center">Qty</th>
+                <th class="text-right">Price</th>
+                <th class="text-right">Subtotal</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in appt.items %}
+            <tr>
+                <td>
+                    <strong>{{ (item.service.name if item.service else 'Service') if item.item_type == 'service' else (item.package.name if item.package else 'Package') }}</strong>
+                    {% if item.item_type == 'package' and item.package and item.package.items %}
+                    <div class="small text-muted">
+                        {% for pi in item.package.items %}
+                        - {{ (pi.service.name if pi.service else 'Service') if pi.item_type == 'service' else (pi.product.name if pi.product else 'Product') }}{% if not loop.last %}, {% endif %}
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </td>
+                <td class="text-center"><span class="item-type">{{ item.item_type|capitalize }}</span></td>
+                <td class="text-center">{{ item.quantity }}</td>
+                <td class="text-right">₱{{ '{:,.2f}'.format(item.price|float) }}</td>
+                <td class="text-right">₱{{ '{:,.2f}'.format((item.price * item.quantity)|float) }}</td>
+            </tr>
+            {% endfor %}
+            {% for a in appt.addons %}
+            <tr>
+                <td>{{ a.product.name if a.product else 'Product' }} <span class="small text-muted">(Add-on)</span></td>
+                <td class="text-center"><span class="item-type">Product</span></td>
+                <td class="text-center">{{ a.quantity }}</td>
+                <td class="text-right">₱{{ '{:,.2f}'.format(a.price|float) }}</td>
+                <td class="text-right">₱{{ '{:,.2f}'.format((a.price * a.quantity)|float) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="receipt-total">
+        <div class="tr-row"><span>Items Total</span><span>₱{{ '{:,.2f}'.format(receipt.total|float) }}</span></div>
+        {% if res_credit %}
+        <div class="tr-row"><span>Reservation Paid ({{ (appt.reservation_method or 'GCash')|upper }} · {{ appt.reservation_paid_at|ph_datetime }})</span><span>-₱{{ '{:,.2f}'.format(res_credit) }}</span></div>
+        {% endif %}
+        <div class="tr-row"><span>Amount Paid ({{ receipt.payment_method|upper }})</span><span>₱{{ '{:,.2f}'.format(receipt.amount_paid|float) }}</span></div>
+        <div class="tr-row"><span>Change</span><span>₱{{ '{:,.2f}'.format(receipt.change_amount|float) }}</span></div>
+        <div class="tr-row grand font-weight-bold"><span>TOTAL PAID</span><span>₱{{ '{:,.2f}'.format((receipt.amount_paid|float) + res_credit - (receipt.change_amount|float)) }}</span></div>
+    </div>
+
+    {% if receipt.reference %}
+    <div class="text-center small mb-2"><strong>Ref:</strong> {{ receipt.reference }}</div>
+    {% endif %}
+
+    <div class="receipt-sign">
+        <div>
+            <div class="line">Received by (Client Signature)</div>
+        </div>
+        <div>
+            <div class="line">Authorized Signature</div>
+        </div>
+    </div>
+
+    <div class="receipt-footer">
+        <p>Thank you for choosing InventroPro!</p>
+        <p class="text-muted">This is not an official invoice unless stamped.</p>
+    </div>
+</div>
+
+<div class="receipt-actions">
+    <button onclick="window.print()" class="btn btn-primary shadow-sm mr-2"><i class="fas fa-print"></i> Print Receipt</button>
+    <a href="{{ url_for('appointments.transactions') }}" class="btn btn-secondary shadow-sm">Back to Transactions</a>
+</div>
+{% endblock %}

@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+{% block title %}GCash QR - InventorPro{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6 text-center">
+        <div class="card shadow mb-4">
+            <div class="card-header bg-gradient-primary text-white py-3">
+                <h5 class="m-0 font-weight-bold">GCash Payment</h5>
+            </div>
+            <div class="card-body">
+                <p class="mb-2">Appointment Code: <strong>{{ appt.appointment_code or '-' }}</strong></p>
+                <p class="mb-2">Total: <strong>₱{{ '{:,.2f}'.format(grand_total) }}</strong></p>
+                <p id="status-msg" class="text-info small mb-4">Waiting for payment...</p>
+                {% if qr_img %}
+                <img src="{{ qr_img }}" alt="GCash QR" class="img-fluid mb-3" style="max-width:250px;">
+                {% endif %}
+                <p class="text-muted small mb-2">Or open this link:</p>
+                <a href="{{ checkout_url }}" target="_blank" class="btn btn-primary btn-sm mb-3">Pay with GCash</a>
+                <hr>
+                <p class="text-muted small mb-2">The POS will auto-complete once PayMongo confirms payment.</p>
+                <form id="complete-form" action="{{ url_for('appointments.gcash_success', id=appt.id) }}" method="post" class="mb-2">
+                    <button type="button" id="complete-btn" class="btn btn-success" onclick="confirmComplete()">Payment Received — Complete</button>
+                </form>
+                <a href="{{ url_for('appointments.pos', id=appt.id) }}" class="btn btn-secondary btn-sm">Back to POS</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+const statusUrl = '{{ url_for("appointments.link_status", id=appt.id) }}';
+const successUrl = '{{ url_for("appointments.gcash_success", id=appt.id) }}';
+let checkInterval;
+
+function completeTransaction() {
+    document.getElementById('complete-form').submit();
+}
+
+function confirmComplete() {
+    fetch(statusUrl)
+        .then(r => r.json())
+        .then(data => {
+            if (data.paid) {
+                document.getElementById('status-msg').textContent = 'Payment confirmed. Completing...';
+                completeTransaction();
+            } else {
+                alert('Payment not yet received. Please finish payment in PayMongo first.');
+            }
+        })
+        .catch(() => alert('Could not check payment status. Please try again.'));
+}
+
+function checkPayment() {
+    fetch(statusUrl)
+        .then(r => r.json())
+        .then(data => {
+            if (data.paid) {
+                document.getElementById('status-msg').textContent = 'Payment received! Completing...';
+                clearInterval(checkInterval);
+                window.location.href = successUrl;
+            }
+        })
+        .catch(() => {});
+}
+
+$(document).ready(function() {
+    checkInterval = setInterval(checkPayment, 5000);
+    checkPayment();
+});
+</script>
+{% endblock %}

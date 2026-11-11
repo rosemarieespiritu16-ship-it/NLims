@@ -1,0 +1,266 @@
+{% extends 'base.html' %}
+{% block title %}POS - InventorPro{% endblock %}
+{% block content %}
+<div class="d-sm-flex align-items-center justify-content-between mb-4">
+    <h1 class="h3 mb-0 text-gray-800">POS - Code: {{ appt.appointment_code or 'Draft' }}
+        {% if appt.status == 'draft' %}<span class="badge badge-secondary">Draft</span>{% endif %}
+    </h1>
+    <div>
+        <form action="{{ url_for('appointments.void', id=appt.id) }}" method="post" style="display:inline" onsubmit="return confirm('Void this transaction?')" class="mr-2">
+            <button type="submit" class="btn btn-sm btn-danger shadow-sm"><i class="fas fa-ban"></i> Void</button>
+        </form>
+        <a href="{{ url_for('appointments.walkins') }}" class="btn btn-sm btn-secondary shadow-sm">Back</a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Transaction Details</h6>
+            </div>
+            <div class="card-body">
+                <table class="table table-bordered table-sm no-dt">
+                    <tr>
+                        <th style="width:30%">Client</th>
+                        <td>{{ appt.client.full_name if appt.client else 'Walk-in' }}</td>
+                    </tr>
+                    <tr>
+                        <th>Worker</th>
+                        <td>
+                            {{ appt.worker.name if appt.worker else '-' }}
+                            {% if appt.worker %}<span class="badge badge-info">Assigned</span>{% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Date</th>
+                        <td>{{ appt.appointment_date }}</td>
+                    </tr>
+                    <tr>
+                        <th>Transaction Number</th>
+                        <td>{{ appt.transaction_number or '-' }}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Services & Packages</h6>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-8">
+                        <form method="post" class="form-inline">
+                            <input type="hidden" name="action" value="add_item">
+                            <input type="hidden" name="item_type" value="service">
+                            <select name="item_id" class="form-control mr-2" required>
+                                <option value="">Add Service</option>
+                                {% for cat, items in services|groupby('category') %}
+                                <optgroup label="{{ cat or 'Services' }}">
+                                    {% for s in items %}
+                                    <option value="{{ s.id }}">{{ s.name }} - ₱{{ '{:,.2f}'.format(s.price|float) }}</option>
+                                    {% endfor %}
+                                </optgroup>
+                                {% endfor %}
+                            </select>
+                            <input type="number" name="quantity" value="1" min="1" class="form-control mr-2" style="width:70px">
+                            <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-plus"></i></button>
+                        </form>
+                    </div>
+                </div>
+
+                <h6 class="font-weight-bold">Selected Items</h6>
+                <table class="table table-bordered table-sm no-dt">
+                    <thead>
+                        <tr>
+                            <th>Type</th>
+                            <th>Item</th>
+                            <th class="text-right">Qty</th>
+                            <th class="text-right">Price</th>
+                            <th class="text-right">Subtotal</th>
+                            <th class="text-center">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in appt.items %}
+                        <tr>
+                            <td>
+                                {% if item.item_type == 'service' %}<span class="badge badge-primary">Service</span>
+                                {% else %}<span class="badge badge-success">Package</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <strong>{{ (item.service.name if item.service else 'Service') if item.item_type == 'service' else (item.package.name if item.package else 'Package') }}</strong>
+                                {% if item.item_type == 'package' and item.package.items %}
+                                <ul class="list-unstyled small ml-3 mb-0">
+                                    {% for pi in item.package.items %}
+                                    <li class="text-muted">- {{ (pi.service.name if pi.service else 'Service') if pi.item_type == 'service' else (pi.product.name if pi.product else 'Product') }}</li>
+                                    {% endfor %}
+                                </ul>
+                                {% endif %}
+                            </td>
+                            <td class="text-right">{{ item.quantity }}</td>
+                            <td class="text-right">₱{{ '{:,.2f}'.format(item.price|float) }}</td>
+                            <td class="text-right">₱{{ '{:,.2f}'.format((item.price * item.quantity)|float) }}</td>
+                            <td class="text-center">
+                                <form method="post" style="display:inline">
+                                    <input type="hidden" name="action" value="remove_item">
+                                    <input type="hidden" name="item_id" value="{{ item.id }}">
+                                    <button type="submit" class="btn btn-sm btn-danger">Remove</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% if not appt.items %}
+                        <tr><td colspan="6" class="text-center text-muted">No service or package selected.</td></tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        {% if appt.addons %}
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Product Add-ons</h6>
+            </div>
+            <div class="card-body">
+                <table class="table table-bordered no-dt">
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th>Qty</th>
+                            <th>Price</th>
+                            <th>Subtotal</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for a in appt.addons %}
+                        <tr>
+                            <td>{{ a.product.name if a.product else 'Product' }}</td>
+                            <td>{{ a.quantity }}</td>
+                            <td>₱{{ '{:,.2f}'.format(a.price|float) }}</td>
+                            <td>₱{{ '{:,.2f}'.format((a.price * a.quantity)|float) }}</td>
+                            <td>
+                                <form action="" method="post" style="display:inline">
+                                    <input type="hidden" name="action" value="remove_addon">
+                                    <input type="hidden" name="addon_id" value="{{ a.id }}">
+                                    <button type="submit" class="btn btn-sm btn-danger">Void</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Payment Summary</h6>
+            </div>
+            <div class="card-body">
+                <table class="table no-dt">
+                    <tr>
+                        <th>Services/Packages</th>
+                        <td class="text-right">₱{{ '{:,.2f}'.format(item_total|float) }}</td>
+                    </tr>
+                    {% if addon_total %}
+                    <tr>
+                        <th>Add-ons</th>
+                        <td class="text-right">₱{{ '{:,.2f}'.format(addon_total|float) }}</td>
+                    </tr>
+                    {% endif %}
+                    <tr class="font-weight-bold h5">
+                        <th>Grand Total</th>
+                        <td class="text-right text-primary">₱{{ '{:,.2f}'.format(grand_total) }}</td>
+                    </tr>
+                    {% if reservation_credit %}
+                    <tr>
+                        <th class="text-success">Less: Reservation paid (GCash)</th>
+                        <td class="text-right text-success">−₱{{ '{:,.2f}'.format(reservation_credit) }}</td>
+                    </tr>
+                    <tr class="font-weight-bold h5">
+                        <th>Balance Due</th>
+                        <td class="text-right text-dark">₱{{ '{:,.2f}'.format(payable) }}</td>
+                    </tr>
+                    {% endif %}
+                </table>
+
+                <hr>
+                <form method="post" id="payment-form">
+                    <input type="hidden" name="action" value="pay">
+                    <div class="form-group">
+                        <label>Payment Method</label>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="payment_method" value="cash" id="cash" checked>
+                            <label class="form-check-label" for="cash">Cash</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="payment_method" value="gcash" id="gcash">
+                            <label class="form-check-label" for="gcash">GCash</label>
+                        </div>
+                    </div>
+
+                    <div id="cash-section">
+                        <div class="form-group">
+                            <label>Amount Paid</label>
+                            <div class="input-group">
+                                <div class="input-group-prepend"><span class="input-group-text">₱</span></div>
+                                <input type="number" step="0.01" min="0" name="amount_paid" id="amount_paid" class="form-control" required>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <strong>Change: <span id="change-display" class="text-success">₱0.00</span></strong>
+                        </div>
+                    </div>
+
+                    <div id="gcash-section" style="display:none;" class="text-muted small">
+                        Client will scan the GCash QR.
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-block" id="pay-btn">Process Payment</button>
+                </form>
+                <hr>
+                <form method="post">
+                    <input type="hidden" name="action" value="save_draft">
+                    <button type="submit" class="btn btn-secondary btn-block"><i class="fas fa-save"></i> Save as Draft</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+const grandTotal = {{ payable }};
+function updateChange() {
+    const paid = parseFloat($('#amount_paid').val()) || 0;
+    const change = paid - grandTotal;
+    $('#change-display').text('₱' + change.toFixed(2));
+    $('#change-display').toggleClass('text-danger', change < 0).toggleClass('text-success', change >= 0);
+    $('#pay-btn').prop('disabled', change < 0);
+}
+$(document).ready(function() {
+    $('#amount_paid').on('input', updateChange);
+    $('input[name="payment_method"]').on('change', function() {
+        if ($(this).val() === 'cash') {
+            $('#cash-section').show();
+            $('#gcash-section').hide();
+            $('#amount_paid').prop('required', true);
+            updateChange();
+        } else {
+            $('#cash-section').hide();
+            $('#gcash-section').show();
+            $('#amount_paid').prop('required', false);
+            $('#pay-btn').prop('disabled', false);
+        }
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,129 @@
+{% extends 'base.html' %}
+{% block title %}Workers - InventorPro{% endblock %}
+{% block content %}
+<div class="d-sm-flex align-items-center justify-content-between mb-4">
+    <h1 class="h3 mb-0 text-gray-800">Workers</h1>
+</div>
+
+<div class="card shadow mb-4">
+    <div class="card-header py-3">
+        <h6 class="m-0 font-weight-bold text-primary">Add Worker (no login needed)</h6>
+    </div>
+    <div class="card-body">
+        <form method="post" action="{{ url_for('workers.add') }}">
+            <div class="form-row">
+                <div class="form-group col-md-3">
+                    <input type="text" name="name" class="form-control" placeholder="Full Name" required>
+                </div>
+                <div class="form-group col-md-2">
+                    <input type="email" name="email" class="form-control" placeholder="Email">
+                </div>
+                <div class="form-group col-md-2">
+                    <input type="tel" name="phone" class="form-control" placeholder="Phone">
+                </div>
+                <div class="form-group col-md-2">
+                    <input type="text" name="specialty" class="form-control" placeholder="Specialty" required>
+                </div>
+                <div class="form-group col-md-2">
+                    <input type="text" name="notes" class="form-control" placeholder="Notes">
+                </div>
+                <div class="form-group col-md-1">
+                    <button type="submit" class="btn btn-primary btn-block">Add</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card shadow mb-4">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Phone</th>
+                        <th>Specialty</th>
+                        <th>Status</th>
+                        <th>Current Transaction</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for w in workers %}
+                    <tr>
+                        <td>{{ w.name }}</td>
+                        <td>{{ w.email or '' }}</td>
+                        <td>{{ w.phone or '' }}</td>
+                        <td>{{ w.specialty or '' }}</td>
+                        <td>
+                            {% if busy[w.id] %}
+                                <span class="badge badge-danger">BUSY</span>
+                            {% else %}
+                                <span class="badge badge-success">Available</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if busy[w.id] %}
+                                <a href="{{ url_for('appointments.pos', id=busy[w.id].id) }}">
+                                    {{ busy[w.id].appointment_code or 'No code' }}
+                                </a>
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{{ url_for('workers.ledger', id=w.id) }}" class="btn btn-sm btn-outline-primary mb-1"><i class="fas fa-book-open mr-1"></i>Ledger</a>
+                            <button type="button" class="btn btn-sm btn-warning mb-1" data-toggle="modal" data-target="#editWorker{{ w.id }}"><i class="fas fa-edit mr-1"></i>Edit</button>
+                            <form action="{{ url_for('workers.delete', id=w.id) }}" method="post" style="display:inline" onsubmit="return confirm('Remove this worker?')">
+                                <button type="submit" class="btn btn-sm btn-danger">Remove</button>
+                            </form>
+                            <div class="modal fade" id="editWorker{{ w.id }}" tabindex="-1" role="dialog" aria-hidden="true">
+                                <div class="modal-dialog modal-dialog-centered" role="document">
+                                    <div class="modal-content">
+                                        <div class="modal-header py-2">
+                                            <h6 class="modal-title"><i class="fas fa-user-edit mr-1"></i>Edit Worker</h6>
+                                            <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+                                        </div>
+                                        <form method="post" action="{{ url_for('workers.edit', id=w.id) }}">
+                                            <div class="modal-body text-left">
+                                                <div class="form-group mb-2">
+                                                    <label class="small font-weight-bold mb-1">Full Name</label>
+                                                    <input type="text" name="name" class="form-control" value="{{ w.name }}" required>
+                                                </div>
+                                                <div class="form-row">
+                                                    <div class="form-group col-md-6 mb-2">
+                                                        <label class="small font-weight-bold mb-1">Email</label>
+                                                        <input type="email" name="email" class="form-control" value="{{ w.email or '' }}">
+                                                    </div>
+                                                    <div class="form-group col-md-6 mb-2">
+                                                        <label class="small font-weight-bold mb-1">Phone</label>
+                                                        <input type="tel" name="phone" class="form-control" value="{{ w.phone or '' }}">
+                                                    </div>
+                                                </div>
+                                                <div class="form-group mb-2">
+                                                    <label class="small font-weight-bold mb-1">Specialty</label>
+                                                    <input type="text" name="specialty" class="form-control" value="{{ w.specialty or '' }}">
+                                                </div>
+                                                <div class="form-group mb-0">
+                                                    <label class="small font-weight-bold mb-1">Notes</label>
+                                                    <input type="text" name="notes" class="form-control" value="{{ w.notes or '' }}">
+                                                </div>
+                                            </div>
+                                            <div class="modal-footer py-2">
+                                                <button type="submit" class="btn btn-primary btn-sm">Save Changes</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,157 @@
+{% for r in rows %}
+<div class="modal fade txn-modal" id="txnModal{{ r.id }}" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="txn-head ledger">
+                <div class="d-flex align-items-center">
+                    <div class="txn-head-icon"><i class="fas fa-receipt"></i></div>
+                    <div>
+                        <span class="txn-eyebrow">TRANSACTION LEDGER</span>
+                        <h4 class="mb-0 font-weight-bold">#{{ r.ref }}</h4>
+                        <small>Created on {{ r.when.strftime('%b %d, %Y %I:%M %p') if r.when else '-' }}</small>
+                    </div>
+                </div>
+                <div class="text-right d-flex align-items-center">
+                    <div class="mr-3">
+                        <span class="txn-status"><i class="fas fa-circle mr-1"></i>{{ r.status_label }}</span>
+                        <div class="s mt-1" style="font-size:.75rem;color:#806F6A">{{ r.type }}</div>
+                    </div>
+                    <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+                </div>
+            </div>
+
+            <div class="txn-info">
+                <div>
+                    <div class="txn-info-ico"><i class="fas fa-user"></i></div>
+                    <div>
+                        <small>CLIENT</small>
+                        <div class="v">{{ r.name }}</div>
+                        <div class="s"><i class="fas fa-phone fa-xs mr-1"></i>{{ r.phone }} &nbsp;<i class="fas fa-envelope fa-xs mr-1"></i>{{ r.email }}</div>
+                    </div>
+                </div>
+                <div>
+                    <div class="txn-info-ico"><i class="fas fa-calendar-alt"></i></div>
+                    <div>
+                        <small>DATE &amp; TIME</small>
+                        <div class="v">{{ r.when.strftime('%b %d, %Y') if r.when else '-' }}</div>
+                        <div class="s">{{ r.when.strftime('%I:%M %p') if r.when else '' }}</div>
+                    </div>
+                </div>
+                <div>
+                    <div class="txn-info-ico"><i class="fas fa-file-invoice"></i></div>
+                    <div>
+                        <small>REFERENCE NO.</small>
+                        <div class="v">{{ r.ref }}</div>
+                        <div class="s">Worker: {{ r.cashier }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-body pt-2">
+                <table class="jrn-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Date/Time</th>
+                            <th>Account / Description</th>
+                            <th>Ref</th>
+                            <th class="text-right">Debit (₱)</th>
+                            <th class="text-right">Credit (₱)</th>
+                            <th class="text-right">Balance (₱)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for e in r.entries %}
+                        <tr>
+                            <td>{{ loop.index }}</td>
+                            <td class="small">{{ e.dt.strftime('%b %d, %Y') if e.dt else '-' }}<br><span class="text-muted">{{ e.dt.strftime('%I:%M %p') if e.dt else '' }}</span></td>
+                            <td>
+                                <div class="jrn-acct">{{ e.account }}</div>
+                                <div class="jrn-desc">{{ e.desc }}</div>
+                            </td>
+                            <td><span class="badge badge-light border">{{ e.ref }}</span></td>
+                            <td class="jrn-num">{{ '{:,.2f}'.format(e.debit) if e.debit is not none else '—' }}</td>
+                            <td class="jrn-num">{{ '{:,.2f}'.format(e.credit) if e.credit is not none else '—' }}</td>
+                            <td class="jrn-num font-weight-bold">{{ '{:,.2f}'.format(e.balance) }}</td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="7" class="text-center text-muted">No entries recorded.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+
+                <div class="row mt-3">
+                    <div class="col-md-4 mb-3">
+                        <div class="txn-card h-100">
+                            <div class="txn-card-head">
+                                <div class="ic"><i class="fas fa-chart-bar"></i></div>
+                                <div><h6>ACCOUNT SUMMARY</h6></div>
+                            </div>
+                            <div class="pay-row">
+                                <span>Total Sales (Services)</span>
+                                <span class="font-weight-bold">₱{{ '{:,.2f}'.format(r.total) }}</span>
+                            </div>
+                            <div class="pay-row" style="border-bottom:0">
+                                <span>Less: Payments Received</span>
+                                <span class="font-weight-bold">₱{{ '{:,.2f}'.format(r.res + r.collected) }}</span>
+                            </div>
+                            <div class="pay-total">
+                                <span>Ending Balance</span>
+                                <span class="amt">₱{{ '{:,.2f}'.format(r.total - r.res - r.collected) }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <div class="txn-card h-100">
+                            <div class="txn-card-head">
+                                <div class="ic"><i class="fas fa-credit-card"></i></div>
+                                <div><h6>PAYMENT DETAILS</h6></div>
+                            </div>
+                            {% if r.res %}
+                            <div class="pay-row">
+                                <span>Reservation fee — {{ r.res_method }}
+                                    <small>{{ r.res_when.strftime('%b %d, %Y %I:%M %p') if r.res_when else '' }}</small>
+                                </span>
+                                <span class="text-right">₱{{ '{:,.2f}'.format(r.res) }}<br><span class="fully-paid" style="padding:1px 8px">Paid</span></span>
+                            </div>
+                            {% endif %}
+                            {% if r.kind != 'reservation' %}
+                            <div class="pay-row" style="border-bottom:0">
+                                <span>Balance — {{ r.method }}
+                                    <small>{{ r.when.strftime('%b %d, %Y %I:%M %p') if r.when else '' }}</small>
+                                </span>
+                                <span class="text-right">₱{{ '{:,.2f}'.format(r.collected) }}<br><span class="fully-paid" style="padding:1px 8px">Paid</span></span>
+                            </div>
+                            {% endif %}
+                            <div class="pay-total">
+                                <span>Total Payments</span>
+                                <span class="amt">₱{{ '{:,.2f}'.format(r.res + r.collected) }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <div class="txn-card h-100">
+                            <div class="txn-card-head">
+                                <div class="ic"><i class="fas fa-sticky-note"></i></div>
+                                <div><h6>NOTES</h6><small>Additional information</small></div>
+                            </div>
+                            <div class="txn-note text-center text-muted pt-4">— No notes provided —</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer txn-foot">
+                {% if r.kind != 'reservation' %}
+                <a href="{{ url_for('appointments.receipt', id=r.id) }}" target="_blank" class="btn btn-txn-out"><i class="fas fa-print mr-1"></i>Print Ledger</a>
+                <a href="{{ url_for('appointments.receipt', id=r.id) }}" target="_blank" class="btn btn-txn-out"><i class="fas fa-download mr-1"></i>Download PDF</a>
+                {% if r.email and r.email != '—' %}
+                <a href="mailto:{{ r.email }}?subject=Receipt {{ r.ref }} - InventorPro" class="btn btn-txn-out"><i class="fas fa-envelope mr-1"></i>Send Receipt</a>
+                {% endif %}
+                {% endif %}
+                <button type="button" class="btn btn-txn ml-auto" data-dismiss="modal"><i class="fas fa-times mr-1"></i>Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}

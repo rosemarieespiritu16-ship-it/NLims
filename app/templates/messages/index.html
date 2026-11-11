@@ -1,0 +1,792 @@
+{% extends 'base.html' %}
+{% macro avatar(user, size=32) %}
+    {% if user and user.image %}
+    <img src="{{ url_for('static', filename='uploads/' ~ user.image) }}" class="rounded-circle flex-shrink-0" style="width:{{ size }}px;height:{{ size }}px;object-fit:cover" alt="">
+    {% else %}
+    <span class="rounded-circle bg-primary text-white d-inline-flex align-items-center justify-content-center flex-shrink-0" style="width:{{ size }}px;height:{{ size }}px;font-size:{{ (size/2.6)|int }}px;font-weight:700">
+        {{ ((user.first_name or user.name or '?')[:1]|upper) ~ ((user.last_name or '')[:1]|upper) if user else '?' }}
+    </span>
+    {% endif %}
+{% endmacro %}
+{% block title %}Messages - InventorPro{% endblock %}
+{% block extra_css %}
+<style>
+    .chat-box { max-height: 420px; overflow-y: auto; }
+    .bubble {
+        max-width: 70%;
+        padding: 8px 14px;
+        border-radius: 15px;
+        font-size: 0.9rem;
+        display: inline-block;
+        text-align: left;
+    }
+    .bubble-mine {
+        background: #B87888;
+        color: #fff;
+        border-bottom-right-radius: 4px;
+    }
+    .bubble-theirs {
+        background: #F3EAE4;
+        color: #3A2926;
+        border-bottom-left-radius: 4px;
+    }
+    .bubble-row { display: flex; align-items: flex-end; margin-bottom: 6px; }
+    .bubble-row.mine { justify-content: flex-end; }
+    .bubble-row .chat-avatar { margin-right: 8px; }
+    .bubble-time { font-size: 0.65rem; opacity: 0.7; display: block; margin-top: 3px; }
+    .msg-delete {
+        opacity: 0;
+        transition: opacity .15s;
+        border: none;
+        background: none;
+        color: #B8A79E;
+        padding: 0 6px;
+        font-size: .75rem;
+    }
+    .bubble-row:hover .msg-delete { opacity: 1; }
+    .msg-delete:hover { color: #B85C68; }
+    .thread-item.active { background: #FDF0F3; border-left: 3px solid #B87888; }
+    .chat-input { border-radius: 20px; }
+    .chat-img { max-width: 220px; max-height: 220px; border-radius: 10px; display: block; margin-bottom: 4px; cursor: zoom-in; }
+    .pkg-card, .appt-card {
+        background: #fff;
+        border: 1px solid #D8BFA8;
+        border-radius: 10px;
+        padding: 10px 12px;
+        margin-bottom: 4px;
+        color: #3A2926;
+        min-width: 200px;
+    }
+    .pkg-card .pkg-price { color: #789B7A; font-weight: 700; }
+    .pkg-card ul { font-size: .78rem; margin: 6px 0 0; padding-left: 16px; color: #806F6A; }
+    .chat-divider {
+        text-align: center;
+        color: #B8A79E;
+        font-size: .82rem;
+        margin: 20px 0;
+        display: flex;
+        align-items: center;
+    }
+    .chat-divider::before, .chat-divider::after {
+        content: '';
+        flex: 1;
+        border-top: 1px solid #EADFD9;
+        margin: 0 12px;
+    }
+    .appt-card .fas { color: #B87888; }
+    #img-preview {
+        display: none;
+        position: relative;
+        padding: 4px;
+        border: 1px solid #D8BFA8;
+        border-radius: 10px;
+        background: #fff;
+    }
+    #img-preview img { width: 44px; height: 44px; object-fit: cover; border-radius: 8px; }
+    #img-preview .rm {
+        position: absolute; top: -8px; right: -8px;
+        width: 18px; height: 18px; border-radius: 50%;
+        background: #B85C68; color: #fff; border: none;
+        font-size: 10px; line-height: 18px; padding: 0;
+    }
+</style>
+{% endblock %}
+{% block content %}
+<div class="d-sm-flex align-items-center justify-content-between mb-4">
+    <h1 class="h3 mb-0 text-gray-800"><i class="fas fa-comments mr-2 text-primary"></i>Messages</h1>
+</div>
+
+<div class="row">
+    {% if current_user.role != 'client' %}
+    <div class="col-lg-4 mb-4">
+        <div class="card shadow h-100">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Client Conversations</h6>
+            </div>
+            <div class="list-group list-group-flush" id="thread-list" style="max-height: 520px; overflow-y: auto;">
+                {% for t in threads %}
+                <a href="{{ url_for('messages.index', client=t.client.id) }}"
+                   class="list-group-item list-group-item-action thread-item d-flex align-items-center {% if active_client and active_client.id == t.client.id %}active{% endif %}">
+                    {{ avatar(t.client, 38) }}
+                    <div class="flex-grow-1 ml-2" style="min-width:0">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <strong>{{ t.client.full_name or t.client.name }}</strong>
+                            {% if t.unread %}<span class="badge badge-danger badge-pill">{{ t.unread }}</span>{% endif %}
+                        </div>
+                        <small class="text-muted d-block text-truncate">{{ t.last.message }}</small>
+                        <small class="text-muted">{{ t.last.created_at|ph_datetime }}</small>
+                    </div>
+                </a>
+                {% else %}
+                <div class="list-group-item text-center text-muted py-5">
+                    <i class="fas fa-inbox fa-2x mb-2 text-gray-300"></i>
+                    <p class="mb-0">No conversations yet.</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="{% if current_user.role == 'client' %}col-lg-8 mx-auto{% else %}col-lg-8{% endif %} mb-4">
+        <div class="card shadow h-100">
+            <div class="card-header py-2 bg-white d-flex justify-content-between align-items-center">
+                <h6 class="m-0 font-weight-bold text-primary d-flex align-items-center">
+                    {% if active_client %}
+                        {{ avatar(active_client, 34) }}
+                        <span class="ml-2">{{ active_client.full_name or active_client.name }}
+                        <small class="text-muted d-block" style="font-weight:400">{{ active_client.email }}</small></span>
+                    {% elif current_user.role == 'client' %}
+                        <span class="rounded-circle bg-primary text-white d-inline-flex align-items-center justify-content-center" style="width:34px;height:34px"><i class="fas fa-headset"></i></span>
+                        <span class="ml-2">Admin Support</span>
+                    {% else %}
+                        Select a conversation
+                    {% endif %}
+                </h6>
+                <div class="d-flex align-items-center">
+                    {% if appt_ctx %}
+                    <span class="badge badge-info mr-2">Re: {{ appt_ctx.appointment_code or 'Booking #' ~ appt_ctx.id }}</span>
+                    {% endif %}
+                    {% if messages %}
+                    <form method="post" action="{{ url_for('messages.clear') }}" onsubmit="return confirm('Clear this conversation? It will be removed from your view.')">
+                        {% if active_client %}<input type="hidden" name="client_id" value="{{ active_client.id }}">{% endif %}
+                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Clear conversation"><i class="fas fa-trash-alt"></i></button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+            {% if active_client and appt_ctx and appt_ctx.status == 'pending' %}
+            {% set chat_url = url_for('messages.index', client=active_client.id, appointment=appt_ctx.id) %}
+            <div class="px-3 py-2 border-bottom bg-light d-flex align-items-center flex-wrap">
+                <small class="text-muted mr-2"><i class="fas fa-bolt mr-1"></i>Booking actions:</small>
+                <form method="post" action="{{ url_for('appointments.confirm', id=appt_ctx.id) }}?next={{ chat_url|urlencode }}" class="mr-1">
+                    <button type="submit" class="btn btn-sm btn-success"><i class="fas fa-check mr-1"></i>Approve</button>
+                </form>
+                {% if not appt_ctx.reservation_paid_at %}
+                <form method="post" action="{{ url_for('appointments.reject', id=appt_ctx.id) }}?next={{ chat_url|urlencode }}" class="mr-2" onsubmit="return confirm('Decline this booking?')">
+                    <button type="submit" class="btn btn-sm btn-danger"><i class="fas fa-times mr-1"></i>Decline</button>
+                </form>
+                {% endif %}
+                <form id="reschedule-form" class="d-flex align-items-center">
+                    <input type="date" name="date" class="form-control form-control-sm mr-1" min="{{ now.strftime('%Y-%m-%d') }}" required style="width:auto">
+                    <button type="submit" class="btn btn-sm btn-outline-info"><i class="fas fa-calendar-alt mr-1"></i>Propose new date</button>
+                </form>
+            </div>
+            {% endif %}
+            <div class="card-body chat-box" id="chat-box">
+                {% if active_client or current_user.role == 'client' %}
+                    {% for m in messages %}
+                    {% if m.action_data == 'system' %}
+                    <div class="chat-divider" data-msg="{{ m.id }}"{% if m.group_id %} data-gid="{{ m.group_id }}"{% endif %}>{{ m.message }}</div>
+                    {% else %}
+                    <div class="bubble-row {% if m.sender_id == current_user.id %}mine{% endif %}" data-msg="{{ m.id }}"{% if m.group_id %} data-gid="{{ m.group_id }}"{% endif %}>
+                        {% if m.sender_id != current_user.id %}
+                            <span class="chat-avatar">{{ avatar(m.sender, 30) }}</span>
+                        {% endif %}
+                        <div class="bubble {% if m.sender_id == current_user.id %}bubble-mine{% else %}bubble-theirs{% endif %}">
+                            {% if m.appointment %}
+                            <div class="appt-card">
+                                <div class="d-flex align-items-center justify-content-between">
+                                    <span><i class="fas fa-calendar-check mr-1"></i><strong>{{ m.appointment.appointment_date.strftime('%b %d, %Y') }}</strong></span>
+                                    <span class="badge badge-{{ 'info' if m.appointment.status == 'confirmed' else 'success' if m.appointment.status == 'completed' else 'danger' if m.appointment.status in ['cancelled','voided'] else 'warning' }}">{{ m.appointment.status|capitalize }}</span>
+                                </div>
+                                {% if m.appointment.appointment_code %}<small class="d-block mt-1 text-muted">Code: {{ m.appointment.appointment_code }}</small>{% endif %}
+                                <a href="{{ url_for('booking.detail', id=m.appointment_id) if current_user.role == 'client' else url_for('appointments.index', status='pending') }}" class="btn btn-sm btn-outline-primary btn-block mt-2">
+                                    {{ 'View booking' if current_user.role == 'client' else 'Review request' }}
+                                </a>
+                                {% if m.action_data and m.action_data.startswith('reschedule:') %}
+                                    {% set rstate = m.action_data.split(':', 1)[1] %}
+                                    {% if rstate != 'done' %}
+                                        {% if current_user.role == 'client' and m.receiver_id == current_user.id and m.appointment.status == 'pending' %}
+                                        <div class="mt-2 text-center">
+                                            <button type="button" class="btn btn-sm btn-success appt-respond" data-id="{{ m.id }}" data-decision="accept">Accept new date</button>
+                                            <button type="button" class="btn btn-sm btn-outline-danger appt-respond ml-1" data-id="{{ m.id }}" data-decision="decline">Decline</button>
+                                        </div>
+                                        {% else %}
+                                        <small class="d-block mt-2 text-muted"><i class="fas fa-clock mr-1"></i>Waiting for client response</small>
+                                        {% endif %}
+                                    {% else %}
+                                        <small class="d-block mt-2 text-muted"><i class="fas fa-check mr-1"></i>Reschedule answered</small>
+                                    {% endif %}
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                            {% if m.attachment %}
+                            <a href="{{ url_for('static', filename='uploads/' ~ m.attachment) }}" target="_blank">
+                                <img src="{{ url_for('static', filename='uploads/' ~ m.attachment) }}" class="chat-img" alt="image">
+                            </a>
+                            {% endif %}
+                            {% if m.package %}
+                            <div class="pkg-card">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <strong>{{ m.package.name }}</strong>
+                                    <span class="pkg-price ml-2">₱{{ '{:,.2f}'.format(m.package.price|float) }}</span>
+                                </div>
+                                {% if m.package.items %}
+                                <ul>
+                                    {% for pi in m.package.items %}
+                                    <li>{{ pi.service.name if pi.item_type == 'service' and pi.service else pi.product.name if pi.product else 'Item' }} x{{ pi.quantity }}</li>
+                                    {% endfor %}
+                                </ul>
+                                {% endif %}
+                                {% if m.appointment_id and m.sender_id == m.client_id %}<small class="d-block mt-1 text-success"><i class="fas fa-check-circle mr-1"></i>Added to booking</small>{% endif %}
+                                {% if current_user.role == 'client' and m.sender_id != current_user.id and (not m.appointment or m.appointment.status == 'pending') %}
+                                <button type="button" class="btn btn-sm btn-primary btn-block mt-2 pkg-interested"
+                                        data-type="package" data-id="{{ m.package.id }}" data-name="{{ m.package.name }}">
+                                    <i class="fas fa-heart mr-1"></i>I'm interested
+                                </button>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                            {% if m.service %}
+                            <div class="pkg-card">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <strong><i class="fas fa-concierge-bell text-primary mr-1"></i>{{ m.service.name }}</strong>
+                                    <span class="pkg-price ml-2">₱{{ '{:,.2f}'.format(m.service.price|float) }}</span>
+                                </div>
+                                {% if m.appointment_id and m.sender_id == m.client_id %}<small class="d-block mt-1 text-success"><i class="fas fa-check-circle mr-1"></i>Added to booking</small>{% endif %}
+                                {% if current_user.role == 'client' and m.sender_id != current_user.id and (not m.appointment or m.appointment.status == 'pending') %}
+                                <button type="button" class="btn btn-sm btn-primary btn-block mt-2 pkg-interested"
+                                        data-type="service" data-id="{{ m.service.id }}" data-name="{{ m.service.name }}">
+                                    <i class="fas fa-heart mr-1"></i>I'm interested
+                                </button>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                            {% if m.message %}{{ m.message }}{% endif %}
+                            <span class="bubble-time">{{ m.created_at|ph_datetime }}</span>
+                        </div>
+                        <button type="button" class="msg-delete" data-id="{{ m.id }}" title="Delete message"><i class="fas fa-trash-alt"></i></button>
+                    </div>
+                    {% endif %}
+                    {% else %}
+                    <div class="text-center text-muted py-5">
+                        <i class="fas fa-paper-plane fa-2x mb-2 text-gray-300"></i>
+                        <p class="mb-0">No messages yet. Say hello!</p>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="text-center text-muted py-5">
+                        <i class="fas fa-comments fa-3x mb-3 text-gray-300"></i>
+                        <p class="mb-0">Pick a client conversation from the list.</p>
+                    </div>
+                {% endif %}
+            </div>
+            {% if active_client or current_user.role == 'client' %}
+            <div class="card-footer bg-white">
+                <form id="chat-form" method="post" action="{{ url_for('messages.send') }}" enctype="multipart/form-data" class="d-flex align-items-center">
+                    {% if active_client %}<input type="hidden" name="client_id" value="{{ active_client.id }}">{% endif %}
+                    {% if appt_ctx %}<input type="hidden" name="appointment_id" value="{{ appt_ctx.id }}">{% endif %}
+                    <input type="file" id="attach-input" name="image" accept="image/*" class="d-none">
+                    <span id="chat-actions" class="d-flex align-items-center{% if not messages %} d-none{% endif %}">
+                    <button type="button" class="btn btn-light rounded-circle mr-2" id="attach-btn" title="Send image">
+                        <i class="fas fa-paperclip"></i>
+                    </button>
+                    <button type="button" class="btn btn-light rounded-circle mr-2" data-toggle="modal" data-target="#packagesModal" title="Send a package">
+                        <i class="fas fa-gift text-success"></i>
+                    </button>
+                    {% if current_user.role == 'client' %}
+                    <button type="button" class="btn btn-light rounded-circle mr-2" data-toggle="modal" data-target="#slotsModal" title="Quick booking">
+                        <i class="fas fa-calendar-plus text-primary"></i>
+                    </button>
+                    {% endif %}
+                    <div id="img-preview" class="mr-2">
+                        <img id="img-preview-thumb" src="" alt="preview">
+                        <button type="button" class="rm" id="img-preview-rm">&times;</button>
+                    </div>
+                    </span>
+                    <input type="text" name="message" id="chat-input" class="form-control chat-input mr-2"
+                           placeholder="Type a message..." autocomplete="off">
+                    <button type="submit" class="btn btn-primary rounded-circle" title="Send">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </form>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Services picker -->
+<div class="modal fade" id="packagesModal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="fas fa-store mr-2"></i>Services</h5>
+                <button type="button" class="close text-white" data-dismiss="modal"><span>&times;</span></button>
+            </div>
+            <div class="modal-body" style="max-height:420px;overflow-y:auto">
+                {% for cat, items in services|groupby('category') %}
+                <div class="small font-weight-bold text-uppercase text-primary mb-2">
+                    <i class="fas fa-{{ 'eye' if cat == 'Lashes' else 'hand-sparkles' if cat == 'Nails' else 'concierge-bell' }} mr-1"></i>{{ cat or 'Services' }}
+                </div>
+                <div class="row">
+                    {% for s in items %}
+                    <div class="col-md-6 mb-3">
+                        <div class="card h-100 border">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start mb-1">
+                                    <h6 class="font-weight-bold mb-0">{{ s.name }}</h6>
+                                    <span class="badge badge-primary px-2 py-1">₱{{ '{:,.2f}'.format(s.price|float) }}</span>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-primary btn-block send-svc"
+                                        data-id="{{ s.id }}" data-name="{{ s.name }}" data-price="{{ '%.2f'|format(s.price|float) }}">
+                                    <i class="fas fa-heart mr-1"></i> I'm interested
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center text-muted py-4">No services available.</div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if current_user.role == 'client' %}
+<!-- Quick booking slots picker -->
+<div class="modal fade" id="slotsModal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="fas fa-calendar-plus mr-2"></i>Quick Booking</h5>
+                <button type="button" class="close text-white" data-dismiss="modal"><span>&times;</span></button>
+            </div>
+            <div class="modal-body" style="max-height:380px;overflow-y:auto">
+                <p class="small text-muted">Pick an available date — a booking request will be sent to the admin for approval.</p>
+                <div class="d-flex flex-wrap">
+                    {% for s in slots %}
+                    {% if s.date.isoformat() in (booked_dates|default([])) %}
+                    <button type="button" class="btn btn-outline-secondary btn-sm m-1" disabled
+                            title="You already have a booking on this date">
+                        {{ s.date.strftime('%b %d') }}
+                        <span class="badge badge-secondary ml-1">booked</span>
+                    </button>
+                    {% else %}
+                    <button type="button" class="btn btn-outline-primary btn-sm m-1 slot-pick"
+                            data-date="{{ s.date }}" data-label="{{ s.date.strftime('%b %d, %Y') }}">
+                        {{ s.date.strftime('%b %d') }}
+                        <span class="badge badge-light ml-1">{{ s.remaining }} left</span>
+                    </button>
+                    {% endif %}
+                    {% else %}
+                    <p class="text-muted mb-0">No available slots in the next 30 days.</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    var chatBox = document.getElementById('chat-box');
+    var form = document.getElementById('chat-form');
+    var input = document.getElementById('chat-input');
+    if (!chatBox) return;
+
+    chatBox.scrollTop = chatBox.scrollHeight;
+
+    function esc(s) {
+        var d = document.createElement('div');
+        d.textContent = s;
+        return d.innerHTML;
+    }
+
+    function avatarHtml(name, img, size) {
+        size = size || 30;
+        if (img) {
+            return '<img src="/assets/uploads/' + encodeURIComponent(img) + '" class="rounded-circle flex-shrink-0" style="width:' + size + 'px;height:' + size + 'px;object-fit:cover" alt="">';
+        }
+        var initials = (name || '?').split(' ').map(function(w) { return w.charAt(0); }).join('').substring(0, 2).toUpperCase();
+        return '<span class="rounded-circle bg-primary text-white d-inline-flex align-items-center justify-content-center flex-shrink-0" style="width:' + size + 'px;height:' + size + 'px;font-size:' + Math.round(size / 2.6) + 'px;font-weight:700">' + initials + '</span>';
+    }
+
+    var isClient = {{ 'true' if current_user.role == 'client' else 'false' }};
+    var apptStatusColor = {pending: 'warning', confirmed: 'info', completed: 'success', cancelled: 'danger', voided: 'danger', draft: 'secondary'};
+
+    function apptCardHtml(a) {
+        var view = isClient ? '/booking/' + a.id + '/detail' : '/appointments/?status=pending';
+        return '<div class="appt-card"><div class="d-flex align-items-center justify-content-between">' +
+            '<span><i class="fas fa-calendar-check mr-1"></i><strong>' + esc(a.date || '') + '</strong></span>' +
+            '<span class="badge badge-' + (apptStatusColor[a.status] || 'secondary') + '">' + esc((a.status || '').replace(/^./, c => c.toUpperCase())) + '</span></div>' +
+            (a.code ? '<small class="d-block mt-1 text-muted">Code: ' + esc(a.code) + '</small>' : '') +
+            '<a href="' + view + '" class="btn btn-sm btn-outline-primary btn-block mt-2">' + (isClient ? 'View booking' : 'Review request') + '</a></div>';
+    }
+
+    function addedBadge(added) {
+        return added ? '<small class="d-block mt-1 text-success"><i class="fas fa-check-circle mr-1"></i>Added to booking</small>' : '';
+    }
+
+    function pkgCardHtml(pkg, added) {
+        var items = (pkg.items || []).map(function(i) { return '<li>' + esc(i.name) + ' x' + i.qty + '</li>'; }).join('');
+        return '<div class="pkg-card"><div class="d-flex justify-content-between align-items-start">' +
+            '<strong>' + esc(pkg.name) + '</strong>' +
+            '<span class="pkg-price ml-2">₱' + Number(pkg.price).toLocaleString('en-US', {minimumFractionDigits: 2}) + '</span></div>' +
+            (items ? '<ul>' + items + '</ul>' : '') + addedBadge(added) + '</div>';
+    }
+
+    function svcCardHtml(svc, added) {
+        return '<div class="pkg-card"><div class="d-flex justify-content-between align-items-start">' +
+            '<strong><i class="fas fa-concierge-bell text-primary mr-1"></i>' + esc(svc.name) + '</strong>' +
+            '<span class="pkg-price ml-2">₱' + Number(svc.price).toLocaleString('en-US', {minimumFractionDigits: 2}) + '</span></div>' +
+            addedBadge(added) + '</div>';
+    }
+
+    function appendBubble(o) {
+        if (o.system) {
+            var div = document.createElement('div');
+            div.className = 'chat-divider';
+            div.textContent = o.text;
+            if (o.id) div.dataset.msg = o.id;
+            if (o.gid) div.dataset.gid = o.gid;
+            var empty0 = chatBox.querySelector('.text-center.text-muted');
+            if (empty0) empty0.remove();
+            chatBox.appendChild(div);
+            chatBox.scrollTop = chatBox.scrollHeight;
+            var act0 = document.getElementById('chat-actions');
+            if (act0) act0.classList.remove('d-none');
+            return;
+        }
+        var row = document.createElement('div');
+        row.className = 'bubble-row' + (o.mine ? ' mine' : '');
+        if (o.id) row.dataset.msg = o.id;
+        if (o.gid) row.dataset.gid = o.gid;
+        if (!o.mine) {
+            var av = document.createElement('span');
+            av.className = 'chat-avatar';
+            av.innerHTML = avatarHtml(o.senderName, o.senderImg, 30);
+            row.appendChild(av);
+        }
+        var b = document.createElement('div');
+        b.className = 'bubble ' + (o.mine ? 'bubble-mine' : 'bubble-theirs');
+        var html = '';
+        if (o.appt) html += apptCardHtml(o.appt);
+        if (o.image) html += '<a href="' + esc(o.image) + '" target="_blank"><img src="' + esc(o.image) + '" class="chat-img" alt="image"></a>';
+        if (o.pkg) html += pkgCardHtml(o.pkg, o.added);
+        if (o.svc) html += svcCardHtml(o.svc, o.added);
+        // client receives a staff suggestion -> show an "I'm interested" button
+        if (isClient && !o.mine && (o.pkg || o.svc) && (!o.appt || o.appt.status === 'pending')) {
+            var it = o.pkg || o.svc;
+            html += '<button type="button" class="btn btn-sm btn-primary btn-block mt-2 pkg-interested" ' +
+                'data-type="' + (o.pkg ? 'package' : 'service') + '" data-id="' + it.id + '" data-name="' + esc(it.name) + '">' +
+                '<i class="fas fa-heart mr-1"></i>I\'m interested</button>';
+        }
+        if (o.text) html += esc(o.text);
+        html += '<span class="bubble-time">' + esc(o.when || 'Just now') + '</span>';
+        b.innerHTML = html;
+        row.appendChild(b);
+        if (o.id) {
+            var del = document.createElement('button');
+            del.type = 'button';
+            del.className = 'msg-delete';
+            del.dataset.id = o.id;
+            del.title = 'Delete message';
+            del.innerHTML = '<i class="fas fa-trash-alt"></i>';
+            row.appendChild(del);
+        }
+        var empty = chatBox.querySelector('.text-center');
+        if (empty) empty.remove();
+        chatBox.appendChild(row);
+        chatBox.scrollTop = chatBox.scrollHeight;
+        var actions = document.getElementById('chat-actions');
+        if (actions) actions.classList.remove('d-none');
+    }
+
+    // Delete a message (own message removes it for everyone)
+    chatBox.addEventListener('click', function(e) {
+        var btn = e.target.closest('.msg-delete');
+        if (!btn) return;
+        if (!confirm('Delete this message?')) return;
+        fetch('/messages/' + btn.dataset.id + '/delete', {
+            method: 'POST',
+            headers: {'X-Requested-With': 'XMLHttpRequest'}
+        }).then(function(r) { return r.json(); })
+          .then(function() {
+              var row = btn.closest('.bubble-row');
+              if (row) row.remove();
+          }).catch(function() {});
+    });
+
+    var attachInput = document.getElementById('attach-input');
+    var attachBtn = document.getElementById('attach-btn');
+    var preview = document.getElementById('img-preview');
+    var previewThumb = document.getElementById('img-preview-thumb');
+    var localImgUrl = null;
+
+    if (attachBtn && attachInput) {
+        attachBtn.addEventListener('click', function() {
+            attachInput.click();
+        });
+        attachInput.addEventListener('change', function() {
+            if (attachInput.files.length) {
+                localImgUrl = URL.createObjectURL(attachInput.files[0]);
+                previewThumb.src = localImgUrl;
+                preview.style.display = 'block';
+            }
+        });
+        document.getElementById('img-preview-rm').addEventListener('click', function() {
+            attachInput.value = '';
+            preview.style.display = 'none';
+            if (localImgUrl) { URL.revokeObjectURL(localImgUrl); localImgUrl = null; }
+        });
+    }
+
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            var text = input.value.trim();
+            if (!text && !attachInput.files.length) return;
+            var fd = new FormData(form);
+            fetch(form.action, {
+                method: 'POST',
+                body: fd,
+                headers: {'X-Requested-With': 'XMLHttpRequest'}
+            }).then(function(r) { return r.json(); })
+              .then(function(d) {
+                  appendBubble({
+                      text: text, mine: true, id: d.id,
+                      appt: {% if appt_ctx %}{id: {{ appt_ctx.id }}, code: {{ appt_ctx.appointment_code | tojson }}, date: {{ appt_ctx.appointment_date.strftime('%b %d, %Y') | tojson }}, status: {{ appt_ctx.status | tojson }}}{% else %}null{% endif %},
+                      when: 'Just now',
+                      image: localImgUrl || ''
+                  });
+                  input.value = '';
+                  attachInput.value = '';
+                  if (preview) preview.style.display = 'none';
+                  if (localImgUrl) { URL.revokeObjectURL(localImgUrl); localImgUrl = null; }
+                  input.focus();
+              }).catch(function() { form.submit(); });
+        });
+    }
+
+    // Interested in a package or service -> attaches to the client's booking
+    var isClient = {{ 'true' if current_user.role == 'client' else 'false' }};
+    if (form) document.querySelectorAll('.send-pkg, .send-svc').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var isPkg = btn.classList.contains('send-pkg');
+            var fd = new FormData();
+            fd.append(isPkg ? 'package_id' : 'service_id', btn.dataset.id);
+            if (form.querySelector('[name=appointment_id]')) fd.append('appointment_id', form.querySelector('[name=appointment_id]').value);
+            if (form.querySelector('[name=client_id]')) fd.append('client_id', form.querySelector('[name=client_id]').value);
+            var url = isClient ? '{{ url_for("messages.interested") }}' : form.action;
+            fetch(url, {
+                method: 'POST',
+                body: fd,
+                headers: {'X-Requested-With': 'XMLHttpRequest'}
+            }).then(function(r) { return r.json(); })
+              .then(function(d) {
+                  if (d.needs_booking) {
+                      $('#packagesModal').modal('hide');
+                      if (d.id) appendBubble({
+                          text: 'Interested in ' + (isPkg ? 'package' : 'service') + ': ' + btn.dataset.name,
+                          mine: true, when: 'Just now', id: d.id, gid: d.gid,
+                          pkg: isPkg ? {id: btn.dataset.id, name: btn.dataset.name, price: parseFloat(btn.dataset.price), items: []} : null,
+                          svc: isPkg ? null : {id: btn.dataset.id, name: btn.dataset.name, price: parseFloat(btn.dataset.price)}
+                      });
+                      if (confirm('You need a booking first. Pick a date and "' + btn.dataset.name + '" will be added to it.')) {
+                          location.href = d.redirect;
+                      }
+                      return;
+                  }
+                  if (d.locked) {
+                      $('#packagesModal').modal('hide');
+                      alert('Your booking is already approved — items can no longer be changed.');
+                      return;
+                  }
+                  if (d.error) { alert(d.error); return; }
+                  var items = btn.dataset.items ? btn.dataset.items.split('|').filter(Boolean).map(function(s) {
+                      var p = s.split(' x');
+                      return {name: p[0], qty: parseInt(p[1] || '1', 10)};
+                  }) : [];
+                  appendBubble({
+                      text: 'Interested in ' + (isPkg ? 'package' : 'service') + ': ' + btn.dataset.name,
+                      mine: true, when: 'Just now', id: d.id, gid: d.gid,
+                      appt: d.appt || null, added: !!d.added_to,
+                      pkg: isPkg ? {name: btn.dataset.name, price: parseFloat(btn.dataset.price), items: items} : null,
+                      svc: isPkg ? null : {name: btn.dataset.name, price: parseFloat(btn.dataset.price)}
+                  });
+                  $('#packagesModal').modal('hide');
+              }).catch(function() {});
+        });
+    });
+
+    // Quick booking: pick a slot -> creates pending appointment + sends card to staff
+    document.querySelectorAll('.slot-pick').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            if (!confirm('Book ' + btn.dataset.label + '? You will pick your services next.')) return;
+            var fd = new FormData();
+            fd.append('date', btn.dataset.date);
+            fetch('{{ url_for("messages.quick_book") }}', {
+                method: 'POST',
+                body: fd,
+                headers: {'X-Requested-With': 'XMLHttpRequest'}
+            }).then(function(r) { return r.json(); })
+              .then(function(d) {
+                  if (d.redirect) { location.href = d.redirect; return; }
+                  if (d.error) { alert(d.error); return; }
+              }).catch(function() { alert('Could not book that slot.'); });
+        });
+    });
+
+    // Staff: propose a new booking date (client confirms in chat)
+    var rsForm = document.getElementById('reschedule-form');
+    if (rsForm) {
+        rsForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            var fd = new FormData(rsForm);
+            fd.append('client_id', {{ active_client.id if active_client else 0 }});
+            fd.append('appointment_id', {{ appt_ctx.id if appt_ctx else 0 }});
+            fetch('{{ url_for("messages.propose_date") }}', {
+                method: 'POST', body: fd,
+                headers: {'X-Requested-With': 'XMLHttpRequest'}
+            }).then(function(r) { return r.json(); })
+              .then(function(d) {
+                  if (d.error) { alert(d.error); return; }
+                  location.reload();
+              }).catch(function() { alert('Could not send proposal.'); });
+        });
+    }
+
+    // Client: "I'm interested" button on a staff-sent package/service card
+    chatBox.addEventListener('click', function(e) {
+        var btn = e.target.closest('.pkg-interested');
+        if (!btn) return;
+        var fd = new FormData();
+        fd.append(btn.dataset.type === 'package' ? 'package_id' : 'service_id', btn.dataset.id);
+        var apptInput = form && form.querySelector('[name=appointment_id]');
+        if (apptInput) fd.append('appointment_id', apptInput.value);
+        btn.disabled = true;
+        fetch('{{ url_for("messages.interested") }}', {
+            method: 'POST', body: fd,
+            headers: {'X-Requested-With': 'XMLHttpRequest'}
+        }).then(function(r) { return r.json(); })
+          .then(function(d) {
+              if (d.needs_booking) {
+                  if (d.id) appendBubble({
+                      text: 'Interested in ' + btn.dataset.type + ': ' + btn.dataset.name,
+                      mine: true, when: 'Just now', id: d.id, gid: d.gid
+                  });
+                  btn.outerHTML = '<small class="d-block mt-1 text-muted"><i class="fas fa-heart mr-1"></i>Interested — no booking yet</small>';
+                  if (confirm('You need a booking first. Pick a date and "' + btn.dataset.name + '" will be added to it.')) {
+                      location.href = d.redirect;
+                  }
+                  return;
+              }
+              if (d.locked) {
+                  btn.outerHTML = '<small class="d-block mt-1 text-muted"><i class="fas fa-lock mr-1"></i>Booking already approved</small>';
+                  return;
+              }
+              if (d.error) { btn.disabled = false; alert(d.error); return; }
+              btn.outerHTML = '<small class="d-block mt-1 text-success"><i class="fas fa-check-circle mr-1"></i>' +
+                  (d.already ? 'Already on your booking' : 'Added to booking') + '</small>';
+              appendBubble({
+                  text: 'Interested in ' + btn.dataset.type + ': ' + btn.dataset.name,
+                  mine: true, when: 'Just now', id: d.id, gid: d.gid,
+                  appt: d.appt || null, added: true
+              });
+          }).catch(function() { btn.disabled = false; });
+    });
+
+    // Client: accept/decline a reschedule proposal in the chat card
+    chatBox.addEventListener('click', function(e) {
+        var btn = e.target.closest('.appt-respond');
+        if (!btn) return;
+        fetch('{{ url_for("messages.index") }}respond/' + btn.dataset.id + '/' + btn.dataset.decision, {
+            method: 'POST',
+            headers: {'X-Requested-With': 'XMLHttpRequest'}
+        }).then(function(r) { return r.json(); })
+          .then(function(d) {
+              if (d.error) { alert(d.error); return; }
+              location.reload();
+          }).catch(function() { alert('Could not send response.'); });
+    });
+
+    window.onMessagesPage = true;
+    var myClientId = {{ (active_client.id if active_client else (current_user.id if current_user.role == 'client' else 0)) }};
+    var myUserId = {{ current_user.id }};
+    var lastId = {{ (messages|map(attribute='id')|list|max) if messages else 0 }};
+    var threadList = document.getElementById('thread-list');
+
+    function renderThreads(list) {
+        if (!threadList) return;
+        if (!list.length) {
+            threadList.innerHTML = '<div class="list-group-item text-center text-muted py-5"><i class="fas fa-inbox fa-2x mb-2 text-gray-300"></i><p class="mb-0">No conversations yet.</p></div>';
+            return;
+        }
+        threadList.innerHTML = '';
+        list.forEach(function(t) {
+            var a = document.createElement('a');
+            a.href = '{{ url_for("messages.index") }}?client=' + t.client_id;
+            a.className = 'list-group-item list-group-item-action thread-item d-flex align-items-center' + (t.client_id === myClientId ? ' active' : '');
+            a.innerHTML = avatarHtml(t.name, t.img, 38) +
+                '<div class="flex-grow-1 ml-2" style="min-width:0"><div class="d-flex justify-content-between align-items-center">' +
+                '<strong>' + esc(t.name) + '</strong>' +
+                (t.unread ? '<span class="badge badge-danger badge-pill">' + t.unread + '</span>' : '') + '</div>' +
+                '<small class="text-muted d-block text-truncate">' + esc(t.last) + '</small>' +
+                '<small class="text-muted">' + esc(t.when) + '</small></div>';
+            threadList.appendChild(a);
+        });
+    }
+
+    function refreshThreads() {
+        fetch('{{ url_for("messages.threads") }}')
+            .then(function(r) { return r.json(); })
+            .then(renderThreads).catch(function() {});
+    }
+
+    if (window.appChannel) {
+        window.appChannel.bind('new-message', function(data) {
+            if (data.client_id === myClientId && data.sender_id !== myUserId) {
+                if (data.id && data.id > lastId) lastId = data.id;
+                // skip if poll already appended this message
+                if (!data.gid || !chatBox.querySelector('[data-gid="' + data.gid + '"]')) {
+                    appendBubble({text: data.message, mine: false, appt: data.appt,
+                                  when: 'Just now', senderName: data.sender,
+                                  id: data.id, gid: data.gid,
+                                  image: data.attachment || '', pkg: data.package,
+                                  svc: data.service, system: data.system,
+                                  added: !!(data.appt && (data.package || data.service))});
+                }
+            }
+            if (threadList) refreshThreads();
+        });
+        window.appChannel.bind('delete-message', function(data) {
+            chatBox.querySelectorAll('[data-gid="' + data.group_id + '"]').forEach(function(el) { el.remove(); });
+            if (threadList) refreshThreads();
+        });
+    }
+
+    // Poll fallback so threads + messages update even if Pusher drops
+    {% if active_client or current_user.role == 'client' %}
+    setInterval(function() {
+        fetch('{{ url_for("messages.thread") }}?client=' + myClientId + '&after=' + lastId,
+              {headers: {'X-Requested-With': 'XMLHttpRequest'}})
+            .then(function(r) { return r.json(); })
+            .then(function(list) {
+                list.forEach(function(m) {
+                    if (m.id > lastId) lastId = m.id;
+                    // skip own messages and ones pusher already appended
+                    if (m.sender_id !== myUserId &&
+                        !(m.gid && chatBox.querySelector('[data-gid="' + m.gid + '"]'))) {
+                        appendBubble({text: m.message, mine: false, appt: m.appt,
+                                      when: m.when, id: m.id, gid: m.gid, senderName: m.sender_name,
+                                      senderImg: m.sender_img, image: m.attachment || '',
+                                      pkg: m.package, svc: m.service, system: m.system,
+                                      added: !!(m.appt && (m.package || m.service))});
+                    }
+                });
+            }).catch(function() {});
+    }, 8000);
+    {% endif %}
+    {% if current_user.role != 'client' %}
+    setInterval(refreshThreads, 10000);
+    {% endif %}
+})();
+</script>
+{% endblock %}

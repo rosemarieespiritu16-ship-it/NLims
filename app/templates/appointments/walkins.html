@@ -1,0 +1,117 @@
+{% extends 'base.html' %}
+{% block title %}POS Sessions - InventorPro{% endblock %}
+{% block content %}
+<div class="d-sm-flex align-items-center justify-content-between mb-1">
+    <div>
+        <h1 class="h3 mb-0 text-gray-800">POS Sessions</h1>
+        <p class="text-muted small mb-0">Active walk-in and in-store transactions</p>
+    </div>
+    <div class="d-flex align-items-center">
+        <form method="post" action="{{ url_for('appointments.pos_lookup') }}" class="form-inline mr-2">
+            <input type="text" name="appointment_code" class="form-control form-control-sm mr-1" placeholder="Transaction code" style="width:140px" required>
+            <button type="submit" class="btn btn-sm btn-outline-secondary"><i class="fas fa-search"></i></button>
+        </form>
+        <a href="{{ url_for('appointments.new_transaction') }}" class="btn btn-sm btn-primary shadow-sm"><i class="fas fa-plus fa-sm mr-1"></i> New Transaction</a>
+    </div>
+</div>
+<hr class="mt-2 mb-3">
+
+{% set draft_count = appts|selectattr('status','equalto','draft')|list|length %}
+{% set confirmed_count = appts|selectattr('status','equalto','confirmed')|list|length %}
+
+<div class="mb-3">
+    <span class="badge badge-success px-3 py-2 mr-2"><i class="fas fa-cash-register mr-1"></i>{{ appts|length }} Active session{{ 's' if appts|length != 1 }}</span>
+    <span class="badge badge-secondary px-3 py-2 mr-2"><i class="fas fa-file-alt mr-1"></i>{{ draft_count }} Draft{{ 's' if draft_count != 1 }}</span>
+    <span class="badge badge-info px-3 py-2"><i class="fas fa-check-circle mr-1"></i>{{ confirmed_count }} Confirmed</span>
+</div>
+
+<ul class="nav nav-pills mb-3">
+    <li class="nav-item"><a class="nav-link {% if status_filter == 'all' %}active{% endif %}" href="{{ url_for('appointments.walkins') }}"><i class="fas fa-list mr-1"></i>Active</a></li>
+    <li class="nav-item"><a class="nav-link {% if status_filter == 'draft' %}active{% endif %}" href="{{ url_for('appointments.walkins', status='draft') }}"><i class="fas fa-file-alt mr-1"></i>Drafts</a></li>
+    <li class="nav-item"><a class="nav-link {% if status_filter == 'confirmed' %}active{% endif %}" href="{{ url_for('appointments.walkins', status='confirmed') }}"><i class="fas fa-check mr-1"></i>Confirmed</a></li>
+</ul>
+
+<div class="card shadow mb-4">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="thead-light">
+                    <tr>
+                        <th class="pl-4">Date</th>
+                        <th>Client</th>
+                        <th>Worker</th>
+                        <th>Code</th>
+                        <th>Service / Package</th>
+                        <th class="text-right">Amount</th>
+                        <th>Status</th>
+                        <th class="text-center">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for a in appts %}
+                    <tr>
+                        <td class="pl-4">{{ a.appointment_date.strftime('%b %d, %Y') }}</td>
+                        <td>
+                            {% if a.client %}
+                                <div class="font-weight-bold">{{ a.client.full_name }}</div>
+                                <small class="text-muted">{{ a.client.email }}</small>
+                            {% else %}
+                                <span class="badge badge-secondary"><i class="fas fa-walking mr-1"></i>Walk-in</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if a.worker %}
+                                <span class="badge badge-light border text-dark">{{ a.worker.name }}</span>
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td><strong>{{ a.appointment_code or '-' }}</strong></td>
+                        <td style="max-width:250px">
+                            {% for item in a.items %}
+                                {% if item.item_type == 'service' %}
+                                    <span class="badge badge-primary mb-1">{{ item.service.name if item.service else 'Service' }}</span>
+                                {% else %}
+                                    <span class="badge badge-success mb-1">{{ item.package.name if item.package else 'Package' }}</span>
+                                {% endif %}
+                            {% endfor %}
+                            {% if not a.items %}
+                                <span class="text-muted">No items</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-right font-weight-bold">₱{{ '{:,.2f}'.format(totals[a.id]|float) }}</td>
+                        <td>
+                            {% if a.status == 'draft' %}<span class="badge badge-secondary">Draft</span>
+                            {% elif a.status == 'confirmed' %}<span class="badge badge-info">Confirmed</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            {% if a.client_id %}
+                                <a href="{{ url_for('messages.index', client=a.client_id) }}" class="btn btn-sm btn-outline-primary mb-1" title="Chat with client"><i class="fas fa-comment-dots"></i></a>
+                            {% endif %}
+                            {% if a.status == 'draft' %}
+                                <a href="{{ url_for('appointments.pos', id=a.id) }}" class="btn btn-sm btn-primary mb-1">Resume POS</a>
+                                <form action="{{ url_for('appointments.cancel_draft', id=a.id) }}" method="post" style="display:inline" onsubmit="return confirm('Delete this draft?')">
+                                    <button type="submit" class="btn btn-sm btn-danger mb-1">Delete</button>
+                                </form>
+                            {% elif a.status == 'confirmed' %}
+                                <a href="{{ url_for('appointments.pos', id=a.id) }}" class="btn btn-sm btn-primary mb-1">POS</a>
+                                <form action="{{ url_for('appointments.void', id=a.id) }}" method="post" style="display:inline" onsubmit="return confirm('Void?')">
+                                    <button type="submit" class="btn btn-sm btn-dark mb-1">Void</button>
+                                </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% if not appts %}
+                    <tr><td colspan="8" class="text-center text-muted py-5">
+                        <i class="fas fa-cash-register fa-2x mb-2 text-gray-300 d-block"></i>
+                        No active sessions. Start one with <strong>New Transaction</strong>.
+                    </td></tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

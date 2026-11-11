@@ -1,0 +1,150 @@
+{% extends 'base.html' %}
+{% block title %}{{ c.full_name or c.name }} - Clients{% endblock %}
+{% macro status_badge(s) %}
+    {% set m = {'pending':'warning','confirmed':'primary','completed':'success','cancelled':'secondary','voided':'danger','draft':'dark','no_show':'danger'} %}
+    <span class="badge badge-{{ m.get(s,'secondary') }}">{{ 'No-Show' if s == 'no_show' else s|capitalize }}</span>
+{% endmacro %}
+{% block content %}
+<div class="d-sm-flex align-items-center justify-content-between mb-4">
+    <h1 class="h3 mb-0 text-gray-800"><i class="fas fa-user mr-2"></i>Client Details</h1>
+    <a href="{{ url_for('clients.index') }}" class="btn btn-sm btn-outline-secondary"><i class="fas fa-arrow-left mr-1"></i>Back to Clients</a>
+</div>
+
+<div class="row">
+    <div class="col-lg-4 mb-4">
+        <div class="card shadow h-100">
+            <div class="card-body text-center py-4">
+                {% if c.image %}
+                <img src="{{ url_for('static', filename='uploads/' + c.image) }}" class="rounded-circle mb-3" style="width:110px;height:110px;object-fit:cover;" alt="Client photo">
+                {% else %}
+                <div class="rounded-circle d-inline-flex align-items-center justify-content-center mb-3"
+                     style="width:110px;height:110px;background:#FDF0F3;color:#B87888;font-size:2.2rem;font-weight:700;">
+                    {{ (c.full_name or c.name or 'C')[0]|upper }}
+                </div>
+                {% endif %}
+                <h5 class="font-weight-bold text-gray-800 mb-1">{{ c.full_name or c.name }}</h5>
+                <span class="badge badge-{{ 'success' if c.status == 1 else 'warning' }} px-3 py-1">
+                    {{ 'Active' if c.status == 1 else 'Pending' }}
+                </span>
+                <hr>
+                <div class="text-left small">
+                    <div class="mb-2"><i class="fas fa-envelope mr-2 text-muted"></i>{{ c.email or '—' }}</div>
+                    <div class="mb-2"><i class="fas fa-phone mr-2 text-muted"></i>{{ c.phone or '—' }}</div>
+                    <div class="mb-2"><i class="fas fa-map-marker-alt mr-2 text-muted"></i>{{ c.address or '—' }}</div>
+                    <div class="mb-2"><i class="fas fa-birthday-cake mr-2 text-muted"></i>{{ c.birthday.strftime('%b %d, %Y') if c.birthday else '—' }}</div>
+                    <div class="mb-2"><i class="fas fa-venus-mars mr-2 text-muted"></i>{{ (c.gender or '—')|capitalize }}</div>
+                    <div><i class="fas fa-calendar mr-2 text-muted"></i>Since {{ c.created_at.strftime('%b %d, %Y') if c.created_at else '—' }}</div>
+                </div>
+                <hr>
+                <div class="d-flex justify-content-center">
+                    <a href="{{ url_for('clients.edit', id=c.id) }}" class="btn btn-sm btn-outline-primary mr-2">
+                        <i class="fas fa-edit mr-1"></i>Edit
+                    </a>
+                    {% if c.status == 1 %}
+                    <a href="{{ url_for('clients.view_as', id=c.id) }}" class="btn btn-sm btn-warning"
+                       onclick="return confirm('View the site as {{ c.full_name or c.name }}?');">
+                        <i class="fas fa-user-secret mr-1"></i>View as Client
+                    </a>
+                    {% else %}
+                    <button class="btn btn-sm btn-warning" disabled title="Pending accounts cannot be previewed">
+                        <i class="fas fa-user-secret mr-1"></i>View as Client
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-8 mb-4">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3 d-flex align-items-center justify-content-between">
+                <h6 class="m-0 font-weight-bold text-primary"><i class="fas fa-calendar-check mr-1"></i>Booking History</h6>
+                <span class="text-muted small">{{ appts|length }} booking{{ 's' if appts|length != 1 }}</span>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="thead-light">
+                            <tr>
+                                <th>Date</th>
+                                <th>Items</th>
+                                <th>Status</th>
+                                <th>Worker</th>
+                                <th class="text-right">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for a in appts %}
+                            <tr>
+                                <td class="text-nowrap">{{ a.appointment_date.strftime('%b %d, %Y') }}</td>
+                                <td class="small">
+                                    {% for i in a.items %}{{ i.service.name if i.service else i.package.name if i.package else 'Item' }}{% if i.quantity > 1 %} ×{{ i.quantity }}{% endif %}{{ ', ' if not loop.last }}{% endfor %}
+                                    {% if a.addons %}{% if a.items %}<br>{% endif %}<span class="text-muted">{% for ad in a.addons %}+ {{ ad.product.name if ad.product else 'Product' }}{% if not loop.last %}, {% endif %}{% endfor %}</span>{% endif %}
+                                    {% if not a.items and not a.addons %}—{% endif %}
+                                </td>
+                                <td>{{ status_badge(a.status) }}</td>
+                                <td class="small">{{ a.worker.name if a.worker else '—' }}</td>
+                                <td class="text-right font-weight-bold">
+                                    ₱{{ '{:,.2f}'.format((a.items|sum(attribute='price') if a.items else 0) + (a.addons|sum(attribute='price') if a.addons else 0)) }}
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="5" class="text-center text-muted py-4">
+                                <i class="fas fa-calendar-times fa-2x mb-2 text-gray-300 d-block"></i>No bookings yet.
+                            </td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="card shadow">
+            <div class="card-header py-3 d-flex align-items-center justify-content-between">
+                <h6 class="m-0 font-weight-bold text-primary"><i class="fas fa-receipt mr-1"></i>Transactions</h6>
+                <span class="text-muted small">{{ rows|length }} record{{ 's' if rows|length != 1 }}</span>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="thead-light">
+                            <tr>
+                                <th>Date</th>
+                                <th>Reference</th>
+                                <th>Method</th>
+                                <th class="text-right">Total</th>
+                                <th class="text-center">Details</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for r in rows %}
+                            <tr>
+                                <td class="text-nowrap">{{ r.when.strftime('%b %d, %Y %I:%M %p') if r.when else '—' }}</td>
+                                <td><code class="text-danger">{{ r.ref }}</code></td>
+                                <td>
+                                    {% if r.method == 'GCASH' %}<span class="badge badge-info">GCASH</span>
+                                    {% elif r.method == 'CASH' %}<span class="badge badge-secondary">CASH</span>
+                                    {% else %}{{ r.method }}{% endif %}
+                                </td>
+                                <td class="text-right font-weight-bold">₱{{ '{:,.2f}'.format(r.total) }}</td>
+                                <td class="text-center">
+                                    <button type="button" class="btn btn-sm btn-outline-primary" data-toggle="modal" data-target="#txnModal{{ r.id }}">
+                                        <i class="fas fa-eye"></i> View
+                                    </button>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="5" class="text-center text-muted py-4">
+                                <i class="fas fa-receipt fa-2x mb-2 text-gray-300 d-block"></i>No transactions yet.
+                            </td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% include 'appointments/_txn_modal.html' %}
+{% endblock %}

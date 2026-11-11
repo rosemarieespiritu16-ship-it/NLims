@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+{% block title %}Audit Log - InventorPro{% endblock %}
+{% macro action_badge(a) %}
+    {% set grp = a.split('.')[0] %}
+    {% set color = {'auth':'info','profile':'secondary','booking':'primary','appt':'warning','pos':'success','walkin':'dark','catalog':'info','worker':'primary','user':'danger','settings':'secondary','stock':'warning'}.get(grp,'secondary') %}
+    <span class="badge badge-{{ color }}">{{ a }}</span>
+{% endmacro %}
+{% block content %}
+<div class="d-sm-flex align-items-center justify-content-between mb-4">
+    <h1 class="h3 mb-0 text-gray-800"><i class="fas fa-clipboard-list mr-2"></i>Audit Log</h1>
+    <span class="text-muted small">{{ total }} entr{{ 'ies' if total != 1 else 'y' }}</span>
+</div>
+
+<div class="card shadow mb-4">
+    <div class="card-body py-3">
+        <form method="get" class="form-inline">
+            <select name="user_id" class="form-control form-control-sm mr-2">
+                <option value="">All Users</option>
+                {% for u in users %}
+                <option value="{{ u.id }}" {% if user_id == u.id %}selected{% endif %}>{{ u.full_name or u.name }}</option>
+                {% endfor %}
+            </select>
+            <select name="action" class="form-control form-control-sm mr-2">
+                <option value="all">All Actions</option>
+                {% for k, label in groups.items() %}
+                <option value="{{ k }}" {% if action == k %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+            <input type="date" name="date_from" class="form-control form-control-sm mr-2" value="{{ date_from }}">
+            <span class="mr-2 text-muted">to</span>
+            <input type="date" name="date_to" class="form-control form-control-sm mr-2" value="{{ date_to }}">
+            <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-filter mr-1"></i>Filter</button>
+            <a href="{{ url_for('audit.index') }}" class="btn btn-sm btn-outline-secondary ml-2"><i class="fas fa-times mr-1"></i>Clear</a>
+        </form>
+    </div>
+</div>
+
+<div class="card shadow mb-4">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 no-dt">
+                <thead class="thead-light">
+                    <tr>
+                        <th>Time</th>
+                        <th>User</th>
+                        <th>Action</th>
+                        <th>Details</th>
+                        <th>IP</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for l in logs %}
+                    <tr>
+                        <td class="small text-nowrap">{{ l.created_at|ph_datetime }}</td>
+                        <td>
+                            <div class="font-weight-bold text-gray-800">{{ l.user_name or 'System' }}</div>
+                            {% if l.user %}<small class="text-muted">{{ l.user.role }}</small>{% endif %}
+                        </td>
+                        <td>{{ action_badge(l.action) }}</td>
+                        <td class="small">{{ l.details or '—' }}</td>
+                        <td class="small text-muted">{{ l.ip or '—' }}</td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="5" class="text-center text-muted py-5">
+                        <i class="fas fa-clipboard-list fa-2x mb-2 text-gray-300 d-block"></i>No activity recorded yet.
+                    </td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if total_pages > 1 %}
+        <nav class="mt-3">
+            <ul class="pagination pagination-sm justify-content-center mb-0">
+                <li class="page-item {% if page <= 1 %}disabled{% endif %}">
+                    <a class="page-link" href="{{ url_for('audit.index', user_id=user_id, action=action, date_from=date_from, date_to=date_to, page=page-1) }}">&laquo;</a>
+                </li>
+                {% for p in range(1, total_pages + 1) %}
+                <li class="page-item {% if p == page %}active{% endif %}">
+                    <a class="page-link" href="{{ url_for('audit.index', user_id=user_id, action=action, date_from=date_from, date_to=date_to, page=p) }}">{{ p }}</a>
+                </li>
+                {% endfor %}
+                <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
+                    <a class="page-link" href="{{ url_for('audit.index', user_id=user_id, action=action, date_from=date_from, date_to=date_to, page=page+1) }}">&raquo;</a>
+                </li>
+            </ul>
+        </nav>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

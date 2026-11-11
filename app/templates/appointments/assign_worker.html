@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+{% block title %}Assign Worker - InventorPro{% endblock %}
+{% block content %}
+<div class="d-sm-flex align-items-center justify-content-between mb-4">
+    <h1 class="h3 mb-0 text-gray-800">Start Transaction</h1>
+    <a href="{{ url_for('appointments.walkins') }}" class="btn btn-sm btn-secondary shadow-sm"><i class="fas fa-arrow-left mr-1"></i> POS Sessions</a>
+</div>
+
+<div class="modal fade" id="workerModal" tabindex="-1" role="dialog" data-backdrop="static" data-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header bg-warning">
+                <h5 class="modal-title font-weight-bold text-dark"><i class="fas fa-user-tag mr-2"></i>Worker Required</h5>
+            </div>
+            <form method="post" action="{{ url_for('appointments.assign_worker', id=appt.id) }}?next={{ url_for('appointments.pos', id=appt.id)|urlencode }}">
+                <div class="modal-body">
+                    <p class="small text-muted mb-3">
+                        Transaction <strong>{{ appt.appointment_code or '#' ~ appt.id }}</strong>
+                        {% if appt.client %}for <strong>{{ appt.client.full_name }}</strong>{% endif %}
+                        has no worker tagged. Assign one before opening POS.
+                    </p>
+                    <label class="font-weight-bold text-gray-700">Worker</label>
+                    <select name="worker_id" class="form-control" required autofocus>
+                        <option value="">Select worker...</option>
+                        {% for w in workers %}
+                        <option value="{{ w.id }}" {% if w.id in busy_ids %}disabled{% endif %}>
+                            {{ w.name }} - {{ w.specialty or '' }}{% if w.id in busy_ids %} (BUSY){% endif %}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="modal-footer">
+                    <a href="{{ url_for('appointments.walkins') }}" class="btn btn-secondary">Cancel</a>
+                    <button type="submit" class="btn btn-primary font-weight-bold"><i class="fas fa-check mr-1"></i>Assign &amp; Open POS</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $('#workerModal').modal('show');
+</script>
+{% endblock %}

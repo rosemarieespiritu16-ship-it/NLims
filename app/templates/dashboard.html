@@ -1,0 +1,318 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard - InventorPro{% endblock %}
+{% block content %}
+<div class="d-sm-flex align-items-center justify-content-between mb-4">
+    <div>
+        <h1 class="h3 mb-0 text-gray-800">Dashboard</h1>
+        <p class="text-muted mb-0 small">Business analytics overview</p>
+    </div>
+    <div class="btn-group btn-group-sm" id="range-pills" role="group">
+        <button type="button" class="btn btn-outline-primary" data-range="7">7D</button>
+        <button type="button" class="btn btn-primary" data-range="30">30D</button>
+        <button type="button" class="btn btn-outline-primary" data-range="90">90D</button>
+    </div>
+</div>
+
+<div id="dash-loading" class="text-center text-muted py-5 d-none">
+    <div class="spinner-border text-primary" role="status"></div>
+    <p class="mt-2 mb-0">Loading analytics...</p>
+</div>
+
+<div id="dash-content">
+
+    <!-- KPI row -->
+    <div class="row" id="kpis">
+        <div class="col mb-4">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body py-2">
+                    <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Revenue</div>
+                    <div class="h5 mb-0 font-weight-bold text-gray-800" id="kpi-revenue">₱0.00</div>
+                </div>
+            </div>
+        </div>
+        <div class="col mb-4">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body py-2">
+                    <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Transactions</div>
+                    <div class="h5 mb-0 font-weight-bold text-gray-800" id="kpi-transactions">0</div>
+                </div>
+            </div>
+        </div>
+        <div class="col mb-4">
+            <div class="card border-left-info shadow h-100 py-2">
+                <div class="card-body py-2">
+                    <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Clients</div>
+                    <div class="h5 mb-0 font-weight-bold text-gray-800" id="kpi-clients">0</div>
+                </div>
+            </div>
+        </div>
+        <div class="col mb-4">
+            <div class="card border-left-danger shadow h-100 py-2">
+                <div class="card-body py-2">
+                    <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">Today's Appts</div>
+                    <div class="h5 mb-0 font-weight-bold text-gray-800" id="kpi-today">0</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Revenue trend + method split -->
+    <div class="row">
+        <div class="col-lg-8 mb-4">
+            <div class="card shadow h-100">
+                <div class="card-header py-3 d-flex align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-primary"><i class="fas fa-chart-line mr-2"></i>Revenue Trend</h6>
+                </div>
+                <div class="card-body">
+                    <div style="position:relative;height:280px"><canvas id="chart-trend"></canvas></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4 mb-4">
+            <div class="card shadow h-100">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary"><i class="fas fa-wallet mr-2"></i>Payment Method</h6>
+                </div>
+                <div class="card-body d-flex flex-column justify-content-center">
+                    <div style="position:relative;height:230px"><canvas id="chart-method"></canvas></div>
+                    <div class="mt-3 text-center small" id="method-legend"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top items + workers -->
+    <div class="row">
+        <div class="col-lg-7 mb-4">
+            <div class="card shadow h-100">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary"><i class="fas fa-trophy mr-2"></i>Top Services</h6>
+                </div>
+                <div class="card-body">
+                    <div style="position:relative;height:280px"><canvas id="chart-items"></canvas></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-5 mb-4">
+            <div class="card shadow h-100">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary"><i class="fas fa-user-tie mr-2"></i>Worker Performance</h6>
+                </div>
+                <div class="card-body">
+                    <div style="position:relative;height:280px"><canvas id="chart-workers"></canvas></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Status + split + upcoming -->
+    <div class="row">
+        <div class="col-lg-4 mb-4">
+            <div class="card shadow h-100">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary"><i class="fas fa-tasks mr-2"></i>Appointment Status</h6>
+                </div>
+                <div class="card-body">
+                    <div style="position:relative;height:220px"><canvas id="chart-status"></canvas></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4 mb-4">
+            <div class="card shadow h-100">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary"><i class="fas fa-walking mr-2"></i>Walk-in vs Client</h6>
+                </div>
+                <div class="card-body">
+                    <div style="position:relative;height:220px"><canvas id="chart-split"></canvas></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4 mb-4">
+            <div class="card shadow h-100">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary"><i class="fas fa-calendar-alt mr-2"></i>Upcoming</h6>
+                </div>
+                <div class="card-body p-0">
+                    <ul class="list-group list-group-flush" id="list-upcoming"></ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent -->
+    <div class="row">
+        <div class="col-12 mb-4">
+            <div class="card shadow h-100">
+                <div class="card-header py-3 d-flex align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-primary"><i class="fas fa-receipt mr-2"></i>Recent Transactions</h6>
+                    <a href="{{ url_for('appointments.transactions') }}" class="small">View all</a>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="bg-light"><tr>
+                                <th class="pl-4">Trans #</th><th>Method</th><th class="text-right">Total</th><th>When</th><th></th>
+                            </tr></thead>
+                            <tbody id="tbl-recent"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='sb-admin-2/vendor/chart.js/Chart.min.js') }}"></script>
+<script>
+(function() {
+    const fmt = v => '₱' + Number(v).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    const C = {blue:'#B87888', green:'#789B7A', cyan:'#D8BFA8', yellow:'#C9A46C', red:'#B85C68', gray:'#806F6A', dark:'#3A2926'};
+    let charts = {};
+    let range = 30;
+
+    const tooltipMoney = {callbacks: {label: (t, d) => fmt(d.datasets[0].data[t.index])}};
+    const moneyY = {ticks: {beginAtZero: true, callback: v => '₱' + Number(v).toLocaleString()}};
+
+    function upsert(id, cfg) {
+        if (charts[id]) charts[id].destroy();
+        charts[id] = new Chart(document.getElementById(id).getContext('2d'), cfg);
+    }
+
+    function esc(s) {
+        const d = document.createElement('div');
+        d.textContent = s == null ? '' : s;
+        return d.innerHTML;
+    }
+
+    function render(data) {
+        document.getElementById('kpi-revenue').textContent = fmt(data.kpis.revenue);
+        document.getElementById('kpi-transactions').textContent = data.kpis.transactions;
+        document.getElementById('kpi-clients').textContent = data.kpis.clients;
+        document.getElementById('kpi-today').textContent = data.kpis.today_appts;
+
+        upsert('chart-trend', {
+            type: 'line',
+            data: {labels: data.revenue_trend.labels, datasets: [{
+                data: data.revenue_trend.data,
+                lineTension: 0.3, fill: true,
+                backgroundColor: 'rgba(78,115,223,0.08)',
+                borderColor: C.blue, pointBackgroundColor: C.blue,
+                pointRadius: 2, pointHoverRadius: 5, borderWidth: 2
+            }]},
+            options: {maintainAspectRatio: false, legend: {display: false},
+                scales: {yAxes: [moneyY], xAxes: [{gridLines: {display: false}, ticks: {maxTicksLimit: 10}}]},
+                tooltips: tooltipMoney}
+        });
+
+        const methodColors = {CASH: C.green, GCASH: C.blue};
+        upsert('chart-method', {
+            type: 'doughnut',
+            data: {labels: data.methods.labels, datasets: [{
+                data: data.methods.data,
+                backgroundColor: data.methods.labels.map(l => methodColors[l] || C.gray),
+                hoverBackgroundColor: data.methods.labels.map(l => methodColors[l] || C.dark)
+            }]},
+            options: {maintainAspectRatio: false, cutoutPercentage: 70, legend: {display: false},
+                tooltips: tooltipMoney}
+        });
+        document.getElementById('method-legend').innerHTML = data.methods.labels.map(function(l, i) {
+            return '<span class="mr-3"><i class="fas fa-circle" style="color:' + (methodColors[l] || C.gray) + '"></i> ' +
+                esc(l) + ' (' + data.methods.counts[i] + ')</span>';
+        }).join('');
+
+        upsert('chart-items', {
+            type: 'horizontalBar',
+            data: {labels: data.top_items.labels, datasets: [{
+                data: data.top_items.data,
+                backgroundColor: data.top_items.types.map(t => t === 'package' ? C.green : C.blue),
+                barPercentage: 0.6
+            }]},
+            options: {maintainAspectRatio: false, legend: {display: false},
+                scales: {xAxes: [moneyY], yAxes: [{gridLines: {display: false}}]},
+                tooltips: tooltipMoney}
+        });
+
+        upsert('chart-workers', {
+            type: 'horizontalBar',
+            data: {labels: data.workers.labels, datasets: [{
+                data: data.workers.data, backgroundColor: C.cyan, barPercentage: 0.6
+            }]},
+            options: {maintainAspectRatio: false, legend: {display: false},
+                scales: {xAxes: [moneyY], yAxes: [{gridLines: {display: false}}]},
+                tooltips: {callbacks: {label: function(t) {
+                    return fmt(t.xLabel) + ' · ' + data.workers.counts[t.index] + ' txn';
+                }}}}
+        });
+
+        const statusColors = [C.yellow, C.cyan, C.gray, C.green, C.red, C.dark];
+        upsert('chart-status', {
+            type: 'doughnut',
+            data: {labels: data.status.labels, datasets: [{
+                data: data.status.data, backgroundColor: statusColors
+            }]},
+            options: {maintainAspectRatio: false, cutoutPercentage: 70,
+                legend: {position: 'bottom', labels: {boxWidth: 12}}}
+        });
+
+        upsert('chart-split', {
+            type: 'doughnut',
+            data: {labels: data.split.labels, datasets: [{
+                data: data.split.data, backgroundColor: [C.yellow, C.blue]
+            }]},
+            options: {maintainAspectRatio: false, cutoutPercentage: 70,
+                legend: {position: 'bottom', labels: {boxWidth: 12}}}
+        });
+
+        const up = document.getElementById('list-upcoming');
+        up.innerHTML = '';
+        if (!data.upcoming.length) {
+            up.innerHTML = '<li class="list-group-item text-muted text-center py-4">No upcoming appointments.</li>';
+        }
+        data.upcoming.forEach(function(a) {
+            const badge = a.status === 'confirmed' ? 'badge-info' : 'badge-warning';
+            up.innerHTML += '<li class="list-group-item py-2"><div class="d-flex justify-content-between">' +
+                '<div><strong>' + esc(a.client) + '</strong><br><small class="text-muted">' + esc(a.date) + ' · ' + esc(a.worker) + '</small></div>' +
+                '<span class="badge ' + badge + ' align-self-center">' + esc(a.status) + '</span></div></li>';
+        });
+
+        const rt = document.getElementById('tbl-recent');
+        rt.innerHTML = '';
+        if (!data.recent.length) {
+            rt.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">No transactions yet.</td></tr>';
+        }
+        data.recent.forEach(function(r) {
+            const mb = r.method === 'GCASH' ? 'badge-primary' : 'badge-success';
+            rt.innerHTML += '<tr><td class="pl-4"><strong>' + esc(r.code) + '</strong></td>' +
+                '<td><span class="badge ' + mb + '">' + esc(r.method) + '</span></td>' +
+                '<td class="text-right font-weight-bold">' + fmt(r.total) + '</td>' +
+                '<td class="text-muted small">' + esc(r.when) + '</td>' +
+                '<td><a class="btn btn-sm btn-outline-primary" href="/appointments/receipt/' + r.id + '">Receipt</a></td></tr>';
+        });
+    }
+
+    function load() {
+        document.getElementById('dash-loading').classList.remove('d-none');
+        fetch('{{ url_for("dashboard.data") }}?range=' + range)
+            .then(function(r) { return r.json(); })
+            .then(function(data) { render(data); })
+            .catch(function(err) { console.error(err); })
+            .finally(function() { document.getElementById('dash-loading').classList.add('d-none'); });
+    }
+
+    document.querySelectorAll('#range-pills button').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            range = parseInt(btn.dataset.range, 10);
+            document.querySelectorAll('#range-pills button').forEach(function(b) {
+                b.classList.toggle('btn-primary', b === btn);
+                b.classList.toggle('btn-outline-primary', b !== btn);
+            });
+            load();
+        });
+    });
+
+    load();
+})();
+</script>
+{% endblock %}

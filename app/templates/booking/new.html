@@ -1,0 +1,307 @@
+{% extends 'base.html' %}
+{% block title %}New Booking - InventorPro{% endblock %}
+{% block extra_css %}
+<style>
+    .picker-item {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 8px 10px; border: 1px solid #EADFD9; border-radius: 8px;
+        margin-bottom: 6px; background: #fff; transition: border-color .15s;
+    }
+    .picker-item.selected { border-color: #B87888; background: #FDF0F3; }
+    .picker-item.interested-hl { border-color: #789B7A; }
+    .picker-name { font-weight: 600; font-size: .9rem; }
+    .picker-price { color: #789B7A; font-weight: 700; font-size: .85rem; margin: 0 10px; }
+    .qty-ctrl { display: flex; align-items: center; }
+    .qty-ctrl button {
+        width: 26px; height: 26px; border: 1px solid #D8BFA8; background: #FFF9F5;
+        border-radius: 6px; line-height: 1; font-weight: 700; color: #B87888;
+    }
+    .qty-ctrl .qval { min-width: 28px; text-align: center; font-weight: 700; }
+    .nav-pills .nav-link { font-size: .85rem; padding: 6px 14px; }
+    .nav-pills .nav-link.active { background: #B87888; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="d-sm-flex align-items-center justify-content-between mb-4">
+    <h1 class="h3 mb-0 text-gray-800">Book an Appointment</h1>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card shadow mb-4">
+            <div class="card-header bg-gradient-primary text-white py-3">
+                <h6 class="m-0 font-weight-bold">1. Choose a Date</h6>
+            </div>
+            <div class="card-body">
+                <form method="post" id="booking-form">
+                    {% if interested %}
+                    <input type="hidden" name="{{ interested.type }}" value="{{ interested.id }}">
+                    {% endif %}
+                    <input type="hidden" name="payment" id="payment-input" value="free">
+                    <div class="form-group text-center">
+                        <input type="date" id="date-picker" name="date" class="form-control form-control-lg text-center" required
+                               min="{{ min_date }}" max="{{ max_date }}" value="{{ request.args.get('date', '') }}">
+                    </div>
+                    <div id="slot-info" class="d-none">
+                        <div class="alert alert-info text-center mb-0">
+                            <h5 class="font-weight-bold mb-2" id="selected-date"></h5>
+                            <p class="mb-1">Client slots available: <strong id="slots-remaining"></strong> / <strong id="slots-max"></strong></p>
+                            <p class="small text-muted mb-0">You are booking <strong>1 slot</strong>.</p>
+                        </div>
+                    </div>
+                    <div id="no-slots" class="d-none">
+                        <div class="alert alert-warning text-center mb-0">
+                            <p class="mb-0">No client slots available for this date. Please choose another date.</p>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="card shadow mb-4" id="items-card">
+            <div class="card-header bg-gradient-primary text-white py-3">
+                <h6 class="m-0 font-weight-bold">2. Choose Services</h6>
+            </div>
+            <div class="card-body">
+                <div style="max-height:340px;overflow-y:auto">
+                    {% for cat, items in services|groupby('category') %}
+                    <div class="small font-weight-bold text-uppercase text-primary mt-2 mb-1">
+                        <i class="fas fa-{{ 'eye' if cat == 'Lashes' else 'hand-sparkles' }} mr-1"></i>{{ cat or 'Services' }}
+                    </div>
+                    {% for s in items %}
+                    <div class="picker-item" data-type="service" data-id="{{ s.id }}" data-price="{{ '%.2f'|format(s.price|float) }}">
+                        <div><span class="picker-name">{{ s.name }}</span>{% if s.duration_minutes %}<small class="text-muted d-block">{{ s.duration_minutes }} min</small>{% endif %}</div>
+                        <div class="d-flex align-items-center">
+                            <span class="picker-price">₱{{ '{:,.2f}'.format(s.price|float) }}</span>
+                            <div class="qty-ctrl">
+                                <button type="button" class="qminus">−</button>
+                                <span class="qval">0</span>
+                                <button type="button" class="qplus">+</button>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    {% else %}<p class="text-muted text-center py-3">No services available.</p>{% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card shadow mb-4 sticky-top" style="top:20px">
+            <div class="card-header bg-gradient-primary text-white py-3">
+                <h6 class="m-0 font-weight-bold">3. Summary & Payment</h6>
+            </div>
+            <div class="card-body">
+                <table class="table table-sm mb-2 no-dt">
+                    <tr><th>Items total</th><td class="text-right" id="items-total">₱0.00</td></tr>
+                    <tr>
+                        <th>Reservation fee
+                            <a href="#" data-toggle="modal" data-target="#policyModal" class="small d-block font-weight-normal">What is this?</a>
+                        </th>
+                        <td class="text-right text-success font-weight-bold" id="fee-display">₱0.00</td>
+                    </tr>
+                </table>
+                <p class="small text-muted">
+                    {% if fee_mode == 'percent' %}Reservation fee = {{ fee_percent|int }}% of your items total, paid via GCash.
+                    {% else %}Reservation fee = ₱{{ '{:,.2f}'.format(fee_amount) }}, paid via GCash.{% endif %}
+                    Paying it secures your slot automatically.
+                </p>
+                <div class="custom-control custom-checkbox mb-3">
+                    <input type="checkbox" class="custom-control-input" id="policy-check">
+                    <label class="custom-control-label small" for="policy-check">I understand the reservation fee is <strong>non-refundable</strong>.</label>
+                </div>
+                <button type="button" class="btn btn-primary btn-block" id="pay-gcash-btn">
+                    <i class="fas fa-mobile-alt mr-1"></i>Pay <span id="pay-label">₱0.00</span> via GCash
+                </button>
+                <div id="pay-waiting" class="alert alert-info small text-center mt-2 d-none">
+                    <i class="fas fa-spinner fa-spin mr-1"></i>Complete your GCash payment in the new tab — this page will update automatically.
+                </div>
+                <button type="button" class="btn btn-outline-secondary btn-block" id="book-free-btn">
+                    Book without payment
+                </button>
+                <small class="d-block text-muted mt-2 text-center">Free bookings may be declined by the admin.</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Non-refundable policy modal -->
+<div class="modal fade" id="policyModal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="fas fa-file-contract mr-2"></i>Reservation Policy</h5>
+                <button type="button" class="close text-white" data-dismiss="modal"><span>&times;</span></button>
+            </div>
+            <div class="modal-body">
+                <ul class="mb-0 pl-3">
+                    <li>The reservation fee is paid via <strong>GCash only</strong>.</li>
+                    <li>Paying it <strong>secures your slot automatically</strong> — your booking is confirmed right away.</li>
+                    <li>The fee is <strong>non-refundable</strong>, even if you cancel your booking.</li>
+                    <li>It is <strong>credited toward your total</strong> — you only pay the balance at the salon.</li>
+                    <li>Bookings without a reservation fee may be <strong>declined</strong> by the admin.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+var slots = {{ slots_dict | tojson }};
+var feeMode = '{{ fee_mode }}';
+var feeAmount = {{ fee_amount }};
+var feePercent = {{ fee_percent }};
+
+// --- Date picker + slot check ---
+var dateInput = document.getElementById('date-picker');
+function checkDate() {
+    var val = dateInput.value;
+    var info = document.getElementById('slot-info');
+    var none = document.getElementById('no-slots');
+    var s = slots[val];
+    if (s && s.remaining > 0) {
+        document.getElementById('selected-date').textContent = val;
+        document.getElementById('slots-remaining').textContent = s.remaining;
+        document.getElementById('slots-max').textContent = s.max;
+        info.classList.remove('d-none');
+        none.classList.add('d-none');
+    } else if (val) {
+        info.classList.add('d-none');
+        none.classList.remove('d-none');
+    } else {
+        info.classList.add('d-none');
+        none.classList.add('d-none');
+    }
+}
+dateInput.addEventListener('change', checkDate);
+checkDate();
+
+// --- Item picker ---
+function itemTotal() {
+    var t = 0;
+    document.querySelectorAll('.picker-item').forEach(function(el) {
+        t += parseFloat(el.dataset.price) * (parseInt(el.querySelector('.qval').textContent, 10) || 0);
+    });
+    return t;
+}
+function currentFee(total) {
+    return feeMode === 'percent' ? Math.round(total * feePercent) / 100 : feeAmount;
+}
+function fmt(n) { return '₱' + n.toLocaleString('en-US', {minimumFractionDigits: 2}); }
+function refreshSummary() {
+    var t = itemTotal();
+    var fee = currentFee(t);
+    document.getElementById('items-total').textContent = fmt(t);
+    document.getElementById('fee-display').textContent = fmt(fee);
+    document.getElementById('pay-label').textContent = fmt(fee);
+}
+document.querySelectorAll('.picker-item').forEach(function(el) {
+    el.querySelector('.qplus').addEventListener('click', function() {
+        var v = el.querySelector('.qval');
+        var max = parseInt(el.dataset.max || '999', 10);
+        v.textContent = Math.min(max, (parseInt(v.textContent, 10) || 0) + 1);
+        el.classList.add('selected');
+        refreshSummary();
+    });
+    el.querySelector('.qminus').addEventListener('click', function() {
+        var v = el.querySelector('.qval');
+        var n = Math.max(0, (parseInt(v.textContent, 10) || 0) - 1);
+        v.textContent = n;
+        if (!n) el.classList.remove('selected');
+        refreshSummary();
+    });
+});
+{% if interested %}
+// pre-check the item the client flagged as interested in chat
+var pre = document.querySelector('.picker-item[data-type="{{ interested.type }}"][data-id="{{ interested.id }}"]');
+if (pre) {
+    pre.querySelector('.qval').textContent = '1';
+    pre.classList.add('selected', 'interested-hl');
+    refreshSummary();
+}
+{% endif %}
+
+// --- Submit ---
+function collectItems() {
+    var form = document.getElementById('booking-form');
+    form.querySelectorAll('input[name="item_type"]').forEach(function(i) { i.remove(); });
+    var n = 0;
+    document.querySelectorAll('.picker-item').forEach(function(el) {
+        var q = parseInt(el.querySelector('.qval').textContent, 10) || 0;
+        if (!q) return;
+        ['item_type', 'item_id', 'qty'].forEach(function(name) {
+            var inp = document.createElement('input');
+            inp.type = 'hidden'; inp.name = name;
+            inp.value = name === 'item_type' ? el.dataset.type : name === 'item_id' ? el.dataset.id : q;
+            form.appendChild(inp);
+        });
+        n++;
+    });
+    return n;
+}
+function validateReady() {
+    if (!dateInput.value || !slots[dateInput.value] || slots[dateInput.value].remaining <= 0) {
+        alert('Please pick a date with available slots.');
+        return false;
+    }
+    if (!collectItems()) {
+        alert('Please choose at least one service.');
+        return false;
+    }
+    return true;
+}
+document.getElementById('book-free-btn').addEventListener('click', function() {
+    if (!validateReady()) return;
+    document.getElementById('payment-input').value = 'free';
+    if (confirm('Book without a reservation fee? Your booking will need admin approval and may be declined.')) {
+        document.getElementById('booking-form').submit();
+    }
+});
+var payPoll = null;
+function pollPayStatus() {
+    if (payPoll) clearInterval(payPoll);
+    payPoll = setInterval(function() {
+        fetch('{{ url_for("booking.pay_status") }}')
+            .then(function(r) { return r.json(); })
+            .then(function(d) {
+                if (d.paid) {
+                    clearInterval(payPoll);
+                    location.href = d.redirect;
+                }
+            }).catch(function() {});
+    }, 4000);
+}
+document.getElementById('pay-gcash-btn').addEventListener('click', function() {
+    if (!document.getElementById('policy-check').checked) {
+        alert('Please tick the "reservation fee is non-refundable" checkbox first.');
+        return;
+    }
+    if (!validateReady()) return;
+    var form = document.getElementById('booking-form');
+    document.getElementById('payment-input').value = 'gcash';
+    var btn = this;
+    btn.disabled = true;
+    fetch(form.action, {
+        method: 'POST',
+        body: new FormData(form),
+        headers: {'X-Requested-With': 'XMLHttpRequest'}
+    }).then(function(r) { return r.json(); })
+      .then(function(d) {
+          if (d.checkout_url) {
+              window.open(d.checkout_url, '_blank');
+              btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Waiting for payment…';
+              document.getElementById('pay-waiting').classList.remove('d-none');
+              pollPayStatus();
+          } else {
+              btn.disabled = false;
+              alert(d.error || 'Could not start the GCash payment.');
+          }
+      }).catch(function() {
+          btn.disabled = false;
+          alert('Could not start the GCash payment.');
+      });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Appointment {{ status|capitalize }} - InventorPro</title>
+</head>
+<body style="margin:0; padding:0; background:#FFF9F5; font-family:Arial, Helvetica, sans-serif;">
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#FFF9F5; padding:30px 0;">
+        <tr>
+            <td align="center">
+                <table width="600" cellpadding="0" cellspacing="0" border="0" style="background:#ffffff; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.1); overflow:hidden;">
+                    <tr>
+                        <td style="background:linear-gradient(135deg, #B87888, #A96778); padding:25px 30px; text-align:center;">
+                            <h1 style="color:#ffffff; margin:0; font-size:26px;">InventorPro</h1>
+                            <p style="color:#F5E1E8; margin:5px 0 0 0; font-size:14px;">AIKELANTIK Nail &amp; Lash Supplies</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:35px;">
+                            <h2 style="color:#3A2926; font-size:20px; margin-top:0;">Hi {{ name }},</h2>
+
+                            {% if status == 'approved' %}
+                            <div style="background:#eef4ee; border-left:4px solid #789B7A; padding:15px 20px; border-radius:4px; margin:20px 0;">
+                                <p style="margin:0; color:#3d5540; font-size:16px; font-weight:bold;">Your appointment has been APPROVED</p>
+                            </div>
+                            <p style="color:#806F6A; font-size:15px; line-height:1.6;">Your appointment on <strong>{{ appt_date }}</strong> is confirmed.</p>
+                            <div style="background:#FDF0F3; border:2px dashed #B87888; border-radius:6px; padding:22px; text-align:center; margin:22px 0;">
+                                <p style="margin:0 0 10px 0; color:#806F6A; font-size:12px; text-transform:uppercase; letter-spacing:1px;">Appointment Code</p>
+                                <p style="margin:0; color:#B87888; font-size:26px; font-weight:bold; letter-spacing:2px;">{{ code }}</p>
+                            </div>
+                            <p style="color:#806F6A; font-size:15px; line-height:1.6;">Please show this code when you arrive at the salon.</p>
+                            {% else %}
+                            <div style="background:#faecee; border-left:4px solid #B85C68; padding:15px 20px; border-radius:4px; margin:20px 0;">
+                                <p style="margin:0; color:#7a3a43; font-size:16px; font-weight:bold;">Your appointment has been DECLINED</p>
+                            </div>
+                            <p style="color:#806F6A; font-size:15px; line-height:1.6;">We're sorry, but your appointment request for <strong>{{ appt_date }}</strong> could not be approved.</p>
+                            <p style="color:#806F6A; font-size:15px; line-height:1.6;">You may book a different date through your InventorPro account.</p>
+                            {% endif %}
+
+                            <a href="{{ app_url }}/auth/login" style="display:inline-block; background:#B87888; color:#ffffff; text-decoration:none; padding:13px 28px; border-radius:5px; font-size:15px; font-weight:bold; margin:10px 0 20px 0;">Open InventorPro</a>
+
+                            <p style="color:#B8A79E; font-size:12px; margin-top:25px; border-top:1px solid #EADFD9; padding-top:15px;">
+                                &copy; {{ now.year }} InventorPro. All rights reserved.
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

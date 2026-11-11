@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+{% block title %}{{ 'Edit' if client else 'Add' }} Client - InventorPro{% endblock %}
+{% block content %}
+<div class="d-sm-flex align-items-center justify-content-between mb-4">
+    <h1 class="h3 mb-0 text-gray-800">{{ 'Edit' if client else 'Add' }} Client</h1>
+</div>
+
+<div class="card shadow mb-4">
+    <div class="card-header py-3">
+        <h6 class="m-0 font-weight-bold text-primary">Walk-in Client Details</h6>
+    </div>
+    <div class="card-body">
+        <form method="post" enctype="multipart/form-data" action="{{ action }}">
+            <div class="form-group row">
+                <div class="col-md-4">
+                    <input type="text" name="first_name" class="form-control" placeholder="First Name" value="{{ client.first_name if client else '' }}" required>
+                </div>
+                <div class="col-md-4">
+                    <input type="text" name="middle_name" class="form-control" placeholder="Middle Name" value="{{ client.middle_name if client else '' }}">
+                </div>
+                <div class="col-md-4">
+                    <input type="text" name="last_name" class="form-control" placeholder="Last Name" value="{{ client.last_name if client else '' }}" required>
+                </div>
+            </div>
+            <div class="form-group row">
+                <div class="col-md-6">
+                    <input type="date" name="birthday" class="form-control" value="{{ client.birthday if client else '' }}" required>
+                </div>
+                <div class="col-md-6">
+                    <select name="gender" class="form-control" required>
+                        <option value="">Gender</option>
+                        <option value="Male" {% if client and client.gender == 'Male' %}selected{% endif %}>Male</option>
+                        <option value="Female" {% if client and client.gender == 'Female' %}selected{% endif %}>Female</option>
+                        <option value="Other" {% if client and client.gender == 'Other' %}selected{% endif %}>Other</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group row">
+                <div class="col-md-6">
+                    <input type="email" name="email" class="form-control" placeholder="Email" value="{{ client.email if client else '' }}">
+                </div>
+                <div class="col-md-6">
+                    <input type="tel" name="phone" class="form-control" placeholder="Phone Number" value="{{ client.phone if client else '' }}" required>
+                </div>
+            </div>
+            <div class="form-group">
+                <textarea name="address" class="form-control" rows="3" placeholder="Address" required>{{ client.address if client else '' }}</textarea>
+            </div>
+            <div class="form-group">
+                <label class="small text-muted">Profile Picture (optional)</label>
+                <input type="file" name="image" class="form-control-file" accept="image/*">
+                {% if client and client.image %}
+                    <div class="mt-2">
+                        <img src="{{ url_for('static', filename='uploads/' ~ client.image) }}" class="rounded-circle" style="width:80px; height:80px; object-fit:cover;" alt="Current photo">
+                    </div>
+                {% endif %}
+            </div>
+            <button type="submit" class="btn btn-primary">{{ 'Update' if client else 'Add Client' }}</button>
+            <a href="{{ url_for('clients.index') }}" class="btn btn-secondary">Cancel</a>
+        </form>
+    </div>
+</div>
+{% endblock %}

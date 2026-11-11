@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+{% block title %}Settings - InventorPro{% endblock %}
+{% block content %}
+<div class="d-sm-flex align-items-center justify-content-between mb-4">
+    <h1 class="h3 mb-0 text-gray-800">Settings</h1>
+</div>
+
+<div class="row">
+    <div class="col-lg-6">
+        <div class="card shadow mb-4">
+            <div class="card-header bg-gradient-primary text-white py-3">
+                <h6 class="m-0 font-weight-bold"><i class="fas fa-money-check-alt mr-1"></i>Reservation Fee</h6>
+            </div>
+            <div class="card-body">
+                <p class="text-muted small">Clients may pay a reservation fee via GCash to secure their booking slot automatically. Paid reservations are non-refundable and credited toward the client's balance at checkout.</p>
+                <form method="post">
+                    <div class="form-group">
+                        <label class="font-weight-bold">Fee type</label>
+                        <div class="custom-control custom-radio">
+                            <input type="radio" class="custom-control-input" id="mode-fixed" name="reservation_mode" value="fixed" {% if mode == 'fixed' %}checked{% endif %}>
+                            <label class="custom-control-label" for="mode-fixed">Fixed amount</label>
+                        </div>
+                        <div class="custom-control custom-radio">
+                            <input type="radio" class="custom-control-input" id="mode-percent" name="reservation_mode" value="percent" {% if mode == 'percent' %}checked{% endif %}>
+                            <label class="custom-control-label" for="mode-percent">Percentage of the booking total</label>
+                        </div>
+                    </div>
+
+                    <div class="form-group" id="amount-row">
+                        <label for="reservation_amount">Fixed amount (₱)</label>
+                        <input type="number" step="0.01" min="0" class="form-control" id="reservation_amount" name="reservation_amount" value="{{ amount }}">
+                    </div>
+
+                    <div class="form-group" id="percent-row">
+                        <label for="reservation_percent">Percentage</label>
+                        <select class="form-control" id="reservation_percent" name="reservation_percent">
+                            <option value="50" {% if percent == '50' %}selected{% endif %}>50% of the total</option>
+                            <option value="100" {% if percent == '100' %}selected{% endif %}>100% of the total</option>
+                        </select>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-block"><i class="fas fa-save mr-1"></i>Save Settings</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+function toggleFeeRows() {
+    var mode = document.querySelector('input[name="reservation_mode"]:checked').value;
+    document.getElementById('amount-row').style.display = mode === 'fixed' ? '' : 'none';
+    document.getElementById('percent-row').style.display = mode === 'percent' ? '' : 'none';
+}
+document.querySelectorAll('input[name="reservation_mode"]').forEach(function(r) {
+    r.addEventListener('change', toggleFeeRows);
+});
+toggleFeeRows();
+</script>
+{% endblock %}

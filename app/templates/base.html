@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}InventorPro{% endblock %}</title>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='logo.png') }}">
+    <link href="{{ url_for('static', filename='sb-admin-2/vendor/fontawesome-free/css/all.min.css') }}" rel="stylesheet" type="text/css">
+    <link href="https://fonts.googleapis.com/css?family=Nunito:200,300,400,600,700,800,900" rel="stylesheet">
+    <link href="{{ url_for('static', filename='sb-admin-2/css/sb-admin-2.min.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/luxe-blush.css') }}" rel="stylesheet">
+    <link href="https://cdn.datatables.net/1.13.8/css/dataTables.bootstrap4.min.css" rel="stylesheet">
+    {% block extra_css %}{% endblock %}
+</head>
+<body id="page-top">
+    {% if session.get('impersonator_id') %}
+    <div class="alert alert-warning text-center mb-0 py-2 rounded-0 font-weight-bold"
+         style="position:fixed;top:0;left:0;right:0;z-index:2000;">
+        <i class="fas fa-user-secret mr-2"></i>
+        You are viewing as {{ current_user.full_name or current_user.name }}
+        <a href="{{ url_for('clients.exit_preview') }}" class="btn btn-sm btn-dark ml-3">
+            <i class="fas fa-sign-out-alt mr-1"></i>Exit Preview
+        </a>
+    </div>
+    <div style="height:44px;"></div>
+    {% endif %}
+    <div id="wrapper">
+        {% if current_user.is_authenticated %}
+            {% include 'includes/sidebar.html' %}
+        {% endif %}
+        <div id="content-wrapper" class="d-flex flex-column">
+            <div id="content">
+                {% if current_user.is_authenticated %}
+                <nav class="navbar navbar-expand navbar-light bg-white topbar mb-4 static-top shadow">
+                    <button id="sidebarToggleTop" class="btn btn-link d-md-none rounded-circle mr-3">
+                        <i class="fa fa-bars"></i>
+                    </button>
+                    <ul class="navbar-nav ml-auto">
+                        {% if not session.get('impersonator_id') %}
+                        <li class="nav-item no-arrow mx-1">
+                            <a class="nav-link" href="{{ url_for('messages.index') }}" title="Messages">
+                                <i class="fas fa-envelope fa-fw"></i>
+                                <span class="badge badge-danger badge-counter" id="msg-badge"{% if not unread_msg_count %} style="display:none"{% endif %}>{{ unread_msg_count or 0 }}</span>
+                            </a>
+                        </li>
+                        {% endif %}
+                        <li class="nav-item dropdown no-arrow mx-1">
+                            <a class="nav-link dropdown-toggle" href="#" id="alertsDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                <i class="fas fa-bell fa-fw"></i>
+                                <span class="badge badge-danger badge-counter" id="notif-badge"{% if not unread_notif_count %} style="display:none"{% endif %}>{{ unread_notif_count or 0 }}</span>
+                            </a>
+                            <div class="dropdown-list dropdown-menu dropdown-menu-right shadow animated--grow-in" aria-labelledby="alertsDropdown">
+                                <h6 class="dropdown-header">Notifications</h6>
+                                <div id="notif-items" style="max-height:320px;overflow-y:auto;">
+                                {% for n in recent_notifs %}
+                                <a class="dropdown-item d-flex align-items-center{% if not n.is_read %} bg-light{% endif %}" href="{{ url_for('notifications.open', id=n.id) }}">
+                                    <div class="mr-3">
+                                        <div class="icon-circle bg-{{ 'primary' if n.type == 'appointment' else 'info' if n.type == 'message' else 'warning' }}">
+                                            <i class="fas fa-{{ 'calendar-check' if n.type == 'appointment' else 'envelope' if n.type == 'message' else 'bell' }} text-white"></i>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div class="small text-gray-500">{{ n.created_at|ph_datetime }}</div>
+                                        <span{% if not n.is_read %} class="font-weight-bold"{% endif %}>{{ n.title }}</span>
+                                    </div>
+                                </a>
+                                {% else %}
+                                <span class="dropdown-item small text-muted">No notifications</span>
+                                {% endfor %}
+                                </div>
+                                <a class="dropdown-item text-center small text-gray-500" href="{{ url_for('notifications.index') }}">Show All Notifications</a>
+                            </div>
+                        </li>
+                        <div class="topbar-divider d-none d-sm-block"></div>
+                        <li class="nav-item dropdown no-arrow">
+                            <a class="nav-link dropdown-toggle" href="#" id="userDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                <span class="mr-2 d-none d-lg-inline text-gray-600 small">{{ current_user.name }}</span>
+                                <img class="img-profile rounded-circle" src="{{ url_for('static', filename='sb-admin-2/img/undraw_profile.svg') }}" alt="Profile">
+                            </a>
+                            <div class="dropdown-menu dropdown-menu-right shadow animated--grow-in" aria-labelledby="userDropdown">
+                                <a class="dropdown-item" href="{{ url_for('profile.index') }}">
+                                    <i class="fas fa-user-circle fa-sm fa-fw mr-2 text-gray-400"></i>
+                                    My Profile
+                                </a>
+                                <div class="dropdown-divider"></div>
+                                <a class="dropdown-item" href="{{ url_for('auth.logout') }}">
+                                    <i class="fas fa-sign-out-alt fa-sm fa-fw mr-2 text-gray-400"></i>
+                                    Logout
+                                </a>
+                            </div>
+                        </li>
+                    </ul>
+                </nav>
+                {% endif %}
+                <div class="container-fluid">
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                            {% for category, message in messages %}
+                                <div class="alert alert-{{ category }}">{{ message }}</div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+                    {% block content %}{% endblock %}
+                </div>
+            </div>
+            {% if current_user.is_authenticated %}
+            <footer class="sticky-footer bg-white">
+                <div class="container my-auto">
+                    <div class="copyright text-center my-auto">
+                        <span>Copyright &copy; InventorPro {{ now.year }}</span>
+                    </div>
+                </div>
+            </footer>
+            {% endif %}
+        </div>
+    </div>
+    <a class="scroll-to-top rounded" href="#page-top">
+        <i class="fas fa-angle-up"></i>
+    </a>
+    <script src="{{ url_for('static', filename='sb-admin-2/vendor/jquery/jquery.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='sb-admin-2/vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='sb-admin-2/vendor/jquery-easing/jquery.easing.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='sb-admin-2/js/sb-admin-2.min.js') }}"></script>
+    <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.8/js/dataTables.bootstrap4.min.js"></script>
+    <script>
+        $(function () {
+            $('table.table').not('.no-dt').not('.modal table').each(function () {
+                var t = $(this);
+                var rows = t.find('tbody tr');
+                if (rows.length === 1 && rows.first().find('td[colspan]').length) {
+                    rows.remove();
+                }
+                try {
+                    t.DataTable({
+                        pageLength: 10,
+                        lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'All']],
+                        order: [],
+                        language: {
+                            search: '',
+                            searchPlaceholder: 'Search records…',
+                            emptyTable: 'No records found'
+                        }
+                    });
+                } catch (e) {
+                    console.warn('DataTable skipped:', e.message);
+                }
+            });
+        });
+    </script>
+    <div id="toast-zone" style="position:fixed;top:1rem;right:1rem;z-index:2000"></div>
+    {% if config.PUSHER_KEY %}
+    <script src="https://js.pusher.com/8.0/pusher.min.js"></script>
+    <script>
+        function bumpBadge(id) {
+            var el = document.getElementById(id);
+            if (!el) return;
+            el.style.display = '';
+            el.textContent = parseInt(el.textContent || '0', 10) + 1;
+        }
+        function showToast(title, body) {
+            var t = $('<div class="toast" role="alert" data-delay="5000">' +
+                '<div class="toast-header"><strong class="mr-auto">' + $('<div>').text(title).html() + '</strong>' +
+                '<button type="button" class="ml-2 mb-1 close" data-dismiss="toast"><span>&times;</span></button></div>' +
+                '<div class="toast-body">' + $('<div>').text(body || '').html() + '</div></div>');
+            $('#toast-zone').append(t);
+            t.toast('show');
+        }
+        function pushNotifItem(data) {
+            var box = $('#notif-items');
+            box.find('span.text-muted').remove();
+            var icon = data.type === 'appointment' ? 'calendar-check' : (data.type === 'message' ? 'envelope' : 'bell');
+            var color = data.type === 'appointment' ? 'primary' : (data.type === 'message' ? 'info' : 'warning');
+            var a = $('<a class="dropdown-item d-flex align-items-center bg-light"></a>')
+                .attr('href', '/notifications/' + data.id + '/open');
+            a.html('<div class="mr-3"><div class="icon-circle bg-' + color + '"><i class="fas fa-' + icon + ' text-white"></i></div></div>' +
+                '<div><div class="small text-gray-500">' + $('<div>').text(data.when || '').html() + '</div>' +
+                '<span class="font-weight-bold">' + $('<div>').text(data.title || '').html() + '</span></div>');
+            box.prepend(a);
+        }
+
+        var pusher = new Pusher('{{ config.PUSHER_KEY }}', {
+            cluster: '{{ config.PUSHER_CLUSTER or 'ap1' }}',
+            authEndpoint: '/pusher/auth',
+            channelAuthorization: {endpoint: '/pusher/auth', transport: 'ajax'}
+        });
+        var pusherChannel = pusher.subscribe('users');
+        pusherChannel.bind('client-approved', function(data) {
+            console.log('Client approved:', data);
+        });
+        {% if current_user.is_authenticated %}
+        window.appChannel = pusher.subscribe('private-user-{{ current_user.id }}');
+        window.appChannel.bind('pusher:subscription_error', function(status) {
+            console.error('Pusher private channel auth failed:', status);
+        });
+        window.appChannel.bind('notification', function(data) {
+            bumpBadge('notif-badge');
+            pushNotifItem(data);
+            showToast(data.title || 'Notification', data.body || '');
+        });
+        window.appChannel.bind('new-message', function(data) {
+            if (!window.onMessagesPage) {
+                bumpBadge('msg-badge');
+                showToast('New message from ' + (data.sender || ''), data.message || '');
+            }
+        });
+        {% endif %}
+        pusher.connection.bind('error', function(e) { console.error('Pusher error:', e); });
+        pusher.connection.bind('state_change', function(s) { console.log('Pusher:', s.current); });
+    </script>
+    {% endif %}
+    {% if current_user.is_authenticated %}
+    <script>
+        // Badge poll fallback so counts update even if Pusher drops
+        function setBadge(id, n) {
+            var el = document.getElementById(id);
+            if (!el) return;
+            el.textContent = n;
+            el.style.display = n > 0 ? '' : 'none';
+        }
+        setInterval(function() {
+            fetch('{{ url_for("notifications.badge") }}')
+                .then(function(r) { return r.json(); })
+                .then(function(d) {
+                    setBadge('notif-badge', d.notif);
+                    setBadge('msg-badge', d.msg);
+                }).catch(function() {});
+        }, 20000);
+    </script>
+    {% endif %}
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

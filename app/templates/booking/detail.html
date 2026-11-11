@@ -1,0 +1,157 @@
+{% extends 'base.html' %}
+{% block title %}Booking Details - InventorPro{% endblock %}
+{% block content %}
+<div class="d-sm-flex align-items-center justify-content-between mb-4">
+    <h1 class="h3 mb-0 text-gray-800">Booking Details</h1>
+    <div>
+        {% if not session.get('impersonator_id') %}
+        <a href="{{ url_for('messages.index', appointment=appt.id) }}" class="btn btn-sm btn-primary shadow-sm mr-1"><i class="fas fa-comment-dots fa-sm mr-1"></i> Message Admin</a>
+        {% endif %}
+        <a href="{{ url_for('booking.index') }}" class="btn btn-sm btn-secondary shadow-sm">Back</a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Appointment Information</h6>
+            </div>
+            <div class="card-body">
+                <table class="table table-bordered no-dt">
+                    <tr>
+                        <th>Appointment Code</th>
+                        <td><strong>{{ appt.appointment_code or '-' }}</strong></td>
+                    </tr>
+                    <tr>
+                        <th>Date</th>
+                        <td>{{ appt.appointment_date }}</td>
+                    </tr>
+                    <tr>
+                        <th>Type</th>
+                        <td>
+                            {% if appt.is_walkin %}<span class="badge badge-warning">Walk-in</span>
+                            {% else %}<span class="badge badge-primary">Online</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Status</th>
+                        <td>
+                            {% if appt.status == 'pending' %}<span class="badge badge-warning">My Book</span>
+                            {% elif appt.status == 'confirmed' %}<span class="badge badge-info">Approved</span>
+                            {% elif appt.status == 'completed' %}<span class="badge badge-success">Complete</span>
+                            {% elif appt.status == 'cancelled' %}<span class="badge badge-danger">Cancelled</span>
+                            {% elif appt.status == 'voided' %}<span class="badge badge-dark">Voided</span>
+                            {% elif appt.status == 'draft' %}<span class="badge badge-secondary">Draft</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Client</th>
+                        <td>{{ appt.client.full_name if appt.client else 'Walk-in' }}</td>
+                    </tr>
+                    <tr>
+                        <th>Worker</th>
+                        <td>{{ appt.worker.name if appt.worker else '-' }}</td>
+                    </tr>
+                    <tr>
+                        <th>Transaction Number</th>
+                        <td>{{ appt.transaction_number or '-' }}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Service / Package / Add-ons</h6>
+            </div>
+            <div class="card-body">
+                <table class="table table-bordered no-dt">
+                    <thead>
+                        <tr>
+                            <th>Item</th>
+                            <th class="text-right">Qty</th>
+                            <th class="text-right">Price</th>
+                            <th class="text-right">Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in appt.items %}
+                        <tr>
+                            <td>
+                                <strong>{{ (item.service.name if item.service else 'Service') if item.item_type == 'service' else (item.package.name if item.package else 'Package') }}</strong>
+                                {% if item.item_type == 'package' and item.package and item.package.items %}
+                                <ul class="list-unstyled small ml-3 mb-0">
+                                    {% for pi in item.package.items %}
+                                    <li class="text-muted">- {{ (pi.service.name if pi.service else 'Service') if pi.item_type == 'service' else (pi.product.name if pi.product else 'Product') }}</li>
+                                    {% endfor %}
+                                </ul>
+                                {% endif %}
+                            </td>
+                            <td class="text-right">{{ item.quantity }}</td>
+                            <td class="text-right">₱{{ '{:,.2f}'.format(item.price|float) }}</td>
+                            <td class="text-right">₱{{ '{:,.2f}'.format((item.price * item.quantity)|float) }}</td>
+                        </tr>
+                        {% endfor %}
+                        {% for addon in appt.addons %}
+                        <tr>
+                            <td>{{ addon.product.name if addon.product else 'Product' }} (Add-on)</td>
+                            <td class="text-right">{{ addon.quantity }}</td>
+                            <td class="text-right">₱{{ '{:,.2f}'.format(addon.price|float) }}</td>
+                            <td class="text-right">₱{{ '{:,.2f}'.format((addon.price * addon.quantity)|float) }}</td>
+                        </tr>
+                        {% endfor %}
+                        {% if not appt.items and not appt.addons %}
+                        <tr><td colspan="4" class="text-center text-muted">No service or package selected.</td></tr>
+                        {% endif %}
+                    </tbody>
+                    <tfoot>
+                        <tr class="font-weight-bold">
+                            <td colspan="3" class="text-right">Total</td>
+                            <td class="text-right">₱{{ '{:,.2f}'.format(grand_total) }}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Payment Information</h6>
+            </div>
+            <div class="card-body">
+                <table class="table table-bordered no-dt">
+                    <tr>
+                        <th>Payment Status</th>
+                        <td>{{ appt.payment_status or 'Unpaid' }}</td>
+                    </tr>
+                    <tr>
+                        <th>Payment Method</th>
+                        <td>{{ appt.payment_method or '-' }}</td>
+                    </tr>
+                    <tr>
+                        <th>Reference</th>
+                        <td>{{ appt.payment_reference or '-' }}</td>
+                    </tr>
+                    {% if appt.receipt %}
+                    <tr>
+                        <th>Transaction Number</th>
+                        <td>{{ appt.receipt.transaction_number }}</td>
+                    </tr>
+                    {% endif %}
+                </table>
+
+                {% if appt.status in ['pending', 'confirmed'] and appt.appointment_date > now.date() %}
+                <form action="{{ url_for('booking.cancel', id=appt.id) }}" method="post" onsubmit="return confirm('Cancel this booking?{% if appt.reservation_paid_at %} Your reservation fee is non-refundable.{% else %} Your slot will be returned.{% endif %}')">
+                    <button type="submit" class="btn btn-danger btn-block">Cancel Booking</button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

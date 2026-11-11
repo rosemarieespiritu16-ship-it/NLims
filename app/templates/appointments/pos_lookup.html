@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+{% block title %}POS - Enter Code - InventorPro{% endblock %}
+{% block content %}
+<div class="d-sm-flex align-items-center justify-content-between mb-4">
+    <h1 class="h3 mb-0 text-gray-800">Find Transaction</h1>
+    <div>
+        <a href="{{ url_for('appointments.walkins') }}" class="btn btn-sm btn-secondary shadow-sm mr-2"><i class="fas fa-arrow-left"></i> POS Sessions</a>
+        <a href="{{ url_for('appointments.new_transaction') }}" class="btn btn-sm btn-primary shadow-sm"><i class="fas fa-plus"></i> New Transaction</a>
+    </div>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Enter Appointment Code</h6>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    <div class="form-group">
+                        <input type="text" name="appointment_code" class="form-control form-control-lg text-center" placeholder="ABC123" maxlength="10" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block btn-lg">Open POS</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

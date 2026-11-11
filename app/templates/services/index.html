@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+{% block title %}Services - InventorPro{% endblock %}
+{% block content %}
+<div class="d-sm-flex align-items-center justify-content-between mb-4">
+    <h1 class="h3 mb-0 text-gray-800">Services</h1>
+    <a href="{{ url_for('services.add') }}" class="d-none d-sm-inline-block btn btn-sm btn-primary shadow-sm"><i class="fas fa-plus fa-sm text-white-50"></i> Add Service</a>
+</div>
+
+{% for cat, items in services|groupby('category') %}
+<div class="card shadow mb-4">
+    <div class="card-header py-3">
+        <h6 class="m-0 font-weight-bold text-primary">
+            <i class="fas fa-{{ 'eye' if cat == 'Lashes' else 'hand-sparkles' if cat == 'Nails' else 'concierge-bell' }} mr-1"></i>{{ cat or 'Services' }}
+            <span class="badge badge-light border ml-2">{{ items|length }}</span>
+        </h6>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Duration</th>
+                        <th>Price</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in items %}
+                    <tr>
+                        <td>{{ s.name }}</td>
+                        <td>{{ s.duration_minutes }} mins</td>
+                        <td>₱{{ '{:,.2f}'.format(s.price|float) }}</td>
+                        <td>{{ 'Active' if s.status else 'Inactive' }}</td>
+                        <td>
+                            <a href="{{ url_for('services.edit', id=s.id) }}" class="btn btn-sm btn-info">Edit</a>
+                            <form action="{{ url_for('services.delete', id=s.id) }}" method="post" style="display:inline" onsubmit="return confirm('Delete this service?')">
+                                <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="card shadow mb-4">
+    <div class="card-body text-center text-muted py-4">No services yet.</div>
+</div>
+{% endfor %}
+{% endblock %}

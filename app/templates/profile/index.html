@@ -1,0 +1,265 @@
+{% extends 'base.html' %}
+{% block title %}My Profile - InventorPro{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css">
+<style>
+    #cropper-area { max-height: 380px; overflow: hidden; }
+    #cropper-area img { max-width: 100%; }
+    #cam-video { max-width: 100%; max-height: 380px; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="d-sm-flex align-items-center justify-content-between mb-4">
+    <h1 class="h3 mb-0 text-gray-800"><i class="fas fa-user-circle mr-2"></i>My Profile</h1>
+</div>
+
+<div class="row">
+    <div class="col-lg-4 mb-4">
+        <div class="card shadow h-100">
+            <div class="card-body text-center py-4">
+                {% if u.image %}
+                <img src="{{ url_for('static', filename='uploads/' + u.image) }}" class="rounded-circle mb-3" style="width:110px;height:110px;object-fit:cover;" alt="Profile photo">
+                {% else %}
+                <div class="rounded-circle d-inline-flex align-items-center justify-content-center mb-3"
+                     style="width:110px;height:110px;background:#FDF0F3;color:#B87888;font-size:2.2rem;font-weight:700;">
+                    {{ (u.full_name or u.name or 'U')[0]|upper }}
+                </div>
+                {% endif %}
+                <h5 class="font-weight-bold text-gray-800 mb-1">{{ u.full_name or u.name }}</h5>
+                <span class="badge badge-{{ 'danger' if u.role == 'superadmin' else 'primary' if u.role == 'staff' else 'secondary' }} px-3 py-1">{{ u.role|capitalize }}</span>
+                <hr>
+                <div class="text-left small">
+                    <div class="mb-2"><i class="fas fa-envelope mr-2 text-muted"></i>{{ u.email }}</div>
+                    <div class="mb-2"><i class="fas fa-phone mr-2 text-muted"></i>{{ u.phone or '—' }}</div>
+                    <div class="mb-2"><i class="fas fa-map-marker-alt mr-2 text-muted"></i>{{ u.address or '—' }}</div>
+                    <div><i class="fas fa-calendar mr-2 text-muted"></i>Member since {{ u.created_at.strftime('%b %d, %Y') if u.created_at else '—' }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-8 mb-4">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary"><i class="fas fa-edit mr-1"></i>Edit Profile</h6>
+            </div>
+            <div class="card-body">
+                <form method="post" enctype="multipart/form-data">
+                    <div class="form-row">
+                        <div class="form-group col-md-4">
+                            <label class="small font-weight-bold mb-1">First Name</label>
+                            <input type="text" name="first_name" class="form-control" value="{{ u.first_name or '' }}">
+                        </div>
+                        <div class="form-group col-md-4">
+                            <label class="small font-weight-bold mb-1">Middle Name</label>
+                            <input type="text" name="middle_name" class="form-control" value="{{ u.middle_name or '' }}">
+                        </div>
+                        <div class="form-group col-md-4">
+                            <label class="small font-weight-bold mb-1">Last Name</label>
+                            <input type="text" name="last_name" class="form-control" value="{{ u.last_name or '' }}">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group col-md-6">
+                            <label class="small font-weight-bold mb-1">Email <small class="text-muted">(cannot be changed)</small></label>
+                            <input type="email" class="form-control" value="{{ u.email }}" disabled>
+                        </div>
+                        <div class="form-group col-md-6">
+                            <label class="small font-weight-bold mb-1">Phone</label>
+                            <input type="tel" name="phone" class="form-control" value="{{ u.phone or '' }}">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="small font-weight-bold mb-1">Address</label>
+                        <input type="text" name="address" class="form-control" value="{{ u.address or '' }}">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group col-md-4">
+                            <label class="small font-weight-bold mb-1">Birthday</label>
+                            <input type="date" name="birthday" class="form-control" value="{{ u.birthday.strftime('%Y-%m-%d') if u.birthday else '' }}">
+                        </div>
+                        <div class="form-group col-md-4">
+                            <label class="small font-weight-bold mb-1">Gender</label>
+                            <select name="gender" class="form-control">
+                                <option value="">—</option>
+                                <option value="male" {% if u.gender == 'male' %}selected{% endif %}>Male</option>
+                                <option value="female" {% if u.gender == 'female' %}selected{% endif %}>Female</option>
+                                <option value="other" {% if u.gender == 'other' %}selected{% endif %}>Other</option>
+                            </select>
+                        </div>
+                        <div class="form-group col-md-4">
+                            <label class="small font-weight-bold mb-1">Profile Photo</label>
+                            <input type="file" name="image" id="photoInput" accept="image/*" class="d-none">
+                            <div>
+                                <button type="button" class="btn btn-sm btn-outline-primary" id="btn-pick"><i class="fas fa-image mr-1"></i>Choose</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="btn-cam"><i class="fas fa-camera mr-1"></i>Camera</button>
+                            </div>
+                            <img id="photo-preview" class="rounded-circle mt-2 d-none" style="width:64px;height:64px;object-fit:cover;" alt="New photo preview">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-save mr-1"></i>Save Changes</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="card shadow">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary"><i class="fas fa-lock mr-1"></i>Security</h6>
+            </div>
+            <div class="card-body d-flex align-items-center justify-content-between">
+                <div>
+                    <div class="font-weight-bold text-gray-800">Password</div>
+                    <small class="text-muted">Update your password regularly to keep your account secure.</small>
+                </div>
+                <a href="{{ url_for('auth.change_password') }}" class="btn btn-outline-primary"><i class="fas fa-key mr-1"></i>Change Password</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="photoModal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title"><i class="fas fa-crop-alt mr-1"></i>Profile Photo</h6>
+                <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+            </div>
+            <div class="modal-body text-center">
+                <select id="cam-select" class="form-control form-control-sm mb-2 d-none"></select>
+                <video id="cam-video" autoplay playsinline muted class="d-none rounded"></video>
+                <div id="cropper-area" class="d-none"><img id="cropper-img" alt=""></div>
+                <div id="photo-hint" class="text-muted py-5">
+                    <i class="fas fa-image fa-2x mb-2 d-block text-gray-300"></i>
+                    Choose a photo or use your camera.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="m-pick"><i class="fas fa-image mr-1"></i>Choose File</button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="m-cam"><i class="fas fa-camera mr-1"></i>Use Camera</button>
+                <button type="button" class="btn btn-warning btn-sm d-none" id="m-capture"><i class="fas fa-camera mr-1"></i>Capture</button>
+                <button type="button" class="btn btn-primary btn-sm ml-auto d-none" id="m-crop"><i class="fas fa-check mr-1"></i>Crop &amp; Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
+<script>
+(function () {
+    var input = document.getElementById('photoInput');
+    var modal = $('#photoModal');
+    var vid = document.getElementById('cam-video');
+    var area = document.getElementById('cropper-area');
+    var img = document.getElementById('cropper-img');
+    var hint = document.getElementById('photo-hint');
+    var prev = document.getElementById('photo-preview');
+    var cropper = null, stream = null;
+    var camSelect = document.getElementById('cam-select');
+
+    function show(id, on) { document.getElementById(id).classList.toggle('d-none', !on); }
+    function stopCam() {
+        if (stream) { stream.getTracks().forEach(function (t) { t.stop(); }); stream = null; }
+        vid.classList.add('d-none');
+        camSelect.classList.add('d-none');
+        show('m-capture', false);
+    }
+    function listCameras(activeId) {
+        navigator.mediaDevices.enumerateDevices().then(function (devices) {
+            var cams = devices.filter(function (d) { return d.kind === 'videoinput'; });
+            camSelect.innerHTML = '';
+            cams.forEach(function (d, i) {
+                var o = document.createElement('option');
+                o.value = d.deviceId;
+                o.textContent = d.label || ('Camera ' + (i + 1));
+                if (d.deviceId === activeId) { o.selected = true; }
+                camSelect.appendChild(o);
+            });
+            camSelect.classList.toggle('d-none', cams.length === 0);
+        });
+    }
+    function startCam(deviceId) {
+        if (stream) { stream.getTracks().forEach(function (t) { t.stop(); }); stream = null; }
+        var constraints = deviceId
+            ? { video: { deviceId: { exact: deviceId } } }
+            : { video: { facingMode: 'user' } };
+        return navigator.mediaDevices.getUserMedia(constraints)
+            .then(function (s) {
+                stream = s;
+                vid.srcObject = s;
+                vid.classList.remove('d-none');
+                show('m-capture', true);
+                show('m-crop', false);
+                var track = s.getVideoTracks()[0];
+                listCameras(track && track.getSettings ? track.getSettings().deviceId : null);
+            });
+    }
+    function startCrop(src) {
+        stopCam();
+        hint.classList.add('d-none');
+        area.classList.remove('d-none');
+        if (cropper) { cropper.destroy(); cropper = null; }
+        img.src = src;
+        cropper = new Cropper(img, { aspectRatio: 1, viewMode: 1, autoCropArea: 0.9 });
+        show('m-crop', true);
+    }
+    function pickFile() {
+        input.value = '';
+        input.onchange = function () {
+            if (input.files && input.files[0]) {
+                var r = new FileReader();
+                r.onload = function (e) { startCrop(e.target.result); };
+                r.readAsDataURL(input.files[0]);
+            }
+        };
+        input.click();
+    }
+    function openCam() {
+        hint.classList.add('d-none');
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            alert('Camera is not supported on this browser.');
+            return;
+        }
+        startCam(camSelect.value || null)
+            .catch(function () { alert('Camera unavailable or permission denied.'); });
+    }
+    function capture() {
+        var c = document.createElement('canvas');
+        c.width = vid.videoWidth; c.height = vid.videoHeight;
+        c.getContext('2d').drawImage(vid, 0, 0);
+        startCrop(c.toDataURL('image/png'));
+    }
+    function cropSave() {
+        cropper.getCroppedCanvas({ width: 300, height: 300 }).toBlob(function (b) {
+            var f = new File([b], 'profile.png', { type: 'image/png' });
+            var dt = new DataTransfer();
+            dt.items.add(f);
+            input.files = dt.files;
+            prev.src = URL.createObjectURL(b);
+            prev.classList.remove('d-none');
+            modal.modal('hide');
+        }, 'image/png');
+    }
+
+    document.getElementById('btn-pick').onclick = function () { modal.modal('show'); pickFile(); };
+    document.getElementById('btn-cam').onclick = function () { modal.modal('show'); openCam(); };
+    document.getElementById('m-pick').onclick = pickFile;
+    document.getElementById('m-cam').onclick = openCam;
+    document.getElementById('m-capture').onclick = capture;
+    document.getElementById('m-crop').onclick = cropSave;
+    camSelect.onchange = function () {
+        startCam(camSelect.value).catch(function () {
+            alert('Could not switch to that camera.');
+        });
+    };
+    modal.on('hidden.bs.modal', function () {
+        stopCam();
+        if (cropper) { cropper.destroy(); cropper = null; }
+        area.classList.add('d-none');
+        hint.classList.remove('d-none');
+        show('m-crop', false);
+    });
+})();
+</script>
+{% endblock %}

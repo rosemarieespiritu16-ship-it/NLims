@@ -1,0 +1,202 @@
+{% extends 'base.html' %}
+{% block title %}New Transaction - InventorPro{% endblock %}
+{% block content %}
+<div class="d-sm-flex align-items-center justify-content-between mb-1">
+    <div>
+        <h1 class="h3 mb-0 text-gray-800">New Transaction</h1>
+        <p class="text-muted small mb-0">Start a walk-in session or link a registered client — today only</p>
+    </div>
+    <a href="{{ url_for('appointments.walkins') }}" class="btn btn-sm btn-secondary shadow-sm"><i class="fas fa-arrow-left mr-1"></i> Back</a>
+</div>
+<hr class="mt-2 mb-3">
+
+<div class="row justify-content-center">
+    <div class="col-xl-8 col-lg-10">
+        <div class="card shadow mb-4 border-left-primary">
+            <div class="card-header py-3 bg-white">
+                <h6 class="m-0 font-weight-bold text-primary"><i class="fas fa-cash-register mr-2"></i>Start POS Session</h6>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    <div class="form-group">
+                        <label class="font-weight-bold text-gray-700" for="client-display">Client</label>
+                        <div class="input-group">
+                            <input type="hidden" name="client_id" id="client_id" value="">
+                            <input type="text" id="client-display" class="form-control" value="Walk-in (no account)" readonly>
+                            <div class="input-group-append">
+                                <button type="button" class="btn btn-outline-primary" data-toggle="modal" data-target="#clientSearchModal">
+                                    <i class="fas fa-search mr-1"></i> Search Client
+                                </button>
+                            </div>
+                        </div>
+                        <small class="form-text text-muted">Leave as walk-in guest, or search to link a registered client.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="font-weight-bold text-gray-700" for="worker_id">Worker</label>
+                        <select name="worker_id" id="worker_id" class="form-control custom-select" required>
+                            <option value="">Select Worker</option>
+                            {% for w in workers %}
+                            <option value="{{ w.id }}" {% if w.id in busy_ids %}disabled{% endif %}>
+                                {{ w.name }} - {{ w.specialty or '' }}
+                                {% if w.id in busy_ids %}(BUSY){% endif %}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <small class="form-text text-muted">Workers assigned to an active transaction are shown as busy.</small>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-user btn-block font-weight-bold">
+                        <i class="fas fa-play mr-1"></i> Start Transaction
+                    </button>
+                    <a href="{{ url_for('appointments.walkins') }}" class="btn btn-secondary btn-user btn-block font-weight-bold">
+                        Cancel
+                    </a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Client Search Modal -->
+<div class="modal fade" id="clientSearchModal" tabindex="-1" role="dialog" aria-labelledby="clientSearchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title font-weight-bold" id="clientSearchModalLabel"><i class="fas fa-search mr-2"></i>Search Client</h5>
+                <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="input-group">
+                    <div class="input-group-prepend">
+                        <span class="input-group-text bg-white"><i class="fas fa-search text-muted"></i></span>
+                    </div>
+                    <input type="text" id="client-search" class="form-control" placeholder="Type at least 2 characters — name, email or phone..." autocomplete="off">
+                </div>
+
+                <div class="list-group mt-3">
+                    <button type="button" class="list-group-item list-group-item-action client-option" data-id="" data-name="Walk-in (no account)">
+                        <div class="d-flex w-100 justify-content-between align-items-center">
+                            <h6 class="mb-0 font-weight-bold text-primary">Walk-in (no account)</h6>
+                            <span class="badge badge-secondary">Default</span>
+                        </div>
+                        <small class="text-muted">Proceed without linking a client</small>
+                    </button>
+                </div>
+
+                <div id="client-results" class="list-group mt-2" style="max-height: 300px; overflow-y: auto;"></div>
+
+                <div id="client-hint" class="text-center text-muted py-4">
+                    <i class="fas fa-keyboard fa-2x mb-2 text-gray-300"></i>
+                    <p class="mb-0">Start typing to search clients.</p>
+                </div>
+                <div id="client-loading" class="text-center text-muted py-4 d-none">
+                    <div class="spinner-border spinner-border-sm text-primary mr-2" role="status"></div>Searching...
+                </div>
+                <div id="client-empty" class="text-center text-muted py-4 d-none">
+                    <i class="fas fa-user-slash fa-2x mb-2 text-gray-300"></i>
+                    <p class="mb-0">No clients match your search.</p>
+                </div>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    (function() {
+        const clientIdInput = document.getElementById('client_id');
+        const clientDisplay = document.getElementById('client-display');
+        const searchInput = document.getElementById('client-search');
+        const resultsEl = document.getElementById('client-results');
+        const hintEl = document.getElementById('client-hint');
+        const loadingEl = document.getElementById('client-loading');
+        const emptyEl = document.getElementById('client-empty');
+        const searchUrl = "{{ url_for('appointments.clients_search') }}";
+        let debounceTimer = null;
+
+        function selectClient(id, name) {
+            clientIdInput.value = id;
+            clientDisplay.value = name;
+            $('#clientSearchModal').modal('hide');
+        }
+
+        document.querySelectorAll('.client-option').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                selectClient(btn.dataset.id, btn.dataset.name);
+            });
+        });
+
+        function esc(s) {
+            const d = document.createElement('div');
+            d.textContent = s;
+            return d.innerHTML;
+        }
+
+        function renderResults(results) {
+            resultsEl.innerHTML = '';
+            if (!results.length) {
+                emptyEl.classList.remove('d-none');
+                return;
+            }
+            results.forEach(function(c) {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'list-group-item list-group-item-action';
+                btn.innerHTML =
+                    '<div class="d-flex w-100 justify-content-between align-items-center">' +
+                        '<h6 class="mb-0 font-weight-bold text-gray-800">' + esc(c.name) + '</h6>' +
+                        '<small class="text-muted">' + esc(c.phone || 'No phone') + '</small>' +
+                    '</div>' +
+                    '<small class="text-primary">' + esc(c.email) + '</small>';
+                btn.addEventListener('click', function() { selectClient(c.id, c.name); });
+                resultsEl.appendChild(btn);
+            });
+        }
+
+        function setState(state) {
+            hintEl.classList.toggle('d-none', state !== 'hint');
+            loadingEl.classList.toggle('d-none', state !== 'loading');
+            emptyEl.classList.add('d-none');
+            if (state !== 'results') {
+                if (state === 'hint') resultsEl.innerHTML = '';
+            }
+        }
+
+        searchInput.addEventListener('input', function() {
+            const q = searchInput.value.trim();
+            clearTimeout(debounceTimer);
+            if (q.length < 2) {
+                setState('hint');
+                return;
+            }
+            debounceTimer = setTimeout(function() {
+                setState('loading');
+                fetch(searchUrl + '?q=' + encodeURIComponent(q))
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        setState('results');
+                        renderResults(data.results || []);
+                    })
+                    .catch(function() {
+                        setState('results');
+                        renderResults([]);
+                    });
+            }, 300);
+        });
+
+        $('#clientSearchModal').on('shown.bs.modal', function() {
+            searchInput.value = '';
+            resultsEl.innerHTML = '';
+            setState('hint');
+            searchInput.focus();
+        });
+    })();
+</script>
+{% endblock %}

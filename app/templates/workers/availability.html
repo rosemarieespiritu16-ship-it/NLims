@@ -1,0 +1,106 @@
+{% extends 'base.html' %}
+{% block title %}Worker Schedule - InventorPro{% endblock %}
+{% block content %}
+<div class="d-sm-flex align-items-center justify-content-between mb-4">
+    <h1 class="h3 mb-0 text-gray-800">Schedule: {{ worker.name }}</h1>
+    <div>
+        {% if edit_slot %}
+            <a href="{{ url_for('workers.availability', id=worker.id) }}" class="btn btn-sm btn-primary shadow-sm mr-2">New Schedule</a>
+        {% endif %}
+        <a href="{{ url_for('workers.index') }}" class="d-none d-sm-inline-block btn btn-sm btn-secondary shadow-sm">Back to Workers</a>
+    </div>
+</div>
+
+<div class="card shadow mb-4">
+    <div class="card-header py-3">
+        <h6 class="m-0 font-weight-bold text-primary">{{ 'Edit' if edit_slot else 'Add' }} Schedule (Service or Package)</h6>
+    </div>
+    <div class="card-body">
+        {% if edit_slot %}
+            {% set action_url = url_for('workers.edit_slot', slot_id=edit_slot.id) %}
+            {% set s = edit_slot %}
+        {% else %}
+            {% set action_url = url_for('workers.availability', id=worker.id) %}
+            {% set s = None %}
+        {% endif %}
+        <form method="post" action="{{ action_url }}">
+            <div class="form-row">
+                <div class="form-group col-md-4">
+                    <label>Service</label>
+                    <select name="service_id" class="form-control">
+                        <option value="">No Service</option>
+                        {% for sv in services %}
+                            <option value="{{ sv.id }}" {% if s and s.service_id == sv.id %}selected{% endif %}>{{ sv.name }} ({{ sv.duration_minutes }} min) - ₱{{ '{:,.2f}'.format(sv.price|float) }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group col-md-4">
+                    <label>Package</label>
+                    <select name="package_id" class="form-control">
+                        <option value="">No Package</option>
+                        {% for p in packages %}
+                            <option value="{{ p.id }}" {% if s and s.package_id == p.id %}selected{% endif %}>{{ p.name }} - ₱{{ '{:,.2f}'.format(p.price|float) }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group col-md-3">
+                    <label>Date</label>
+                    <input type="date" name="date" class="form-control" value="{{ s.date if s else '' }}" required>
+                </div>
+                <div class="form-group col-md-3">
+                    <label>Start Time</label>
+                    <input type="time" name="start_time" class="form-control" value="{{ s.start_time if s else '' }}" required>
+                </div>
+                <div class="form-group col-md-3">
+                    <label>End Time</label>
+                    <input type="time" name="end_time" class="form-control" value="{{ s.end_time if s else '' }}" required>
+                </div>
+                <div class="form-group col-md-3">
+                    <label>&nbsp;</label>
+                    <button type="submit" class="btn btn-primary btn-block">{{ 'Save Changes' if edit_slot else 'Add Schedule' }}</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% if not edit_slot %}
+<div class="card shadow mb-4">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Service</th>
+                        <th>Package</th>
+                        <th>Start</th>
+                        <th>End</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for slot in slots %}
+                    <tr>
+                        <td>{{ slot.date }}</td>
+                        <td>{{ slot.service.name if slot.service else '-' }}</td>
+                        <td>{{ slot.package.name if slot.package else '-' }}</td>
+                        <td>{{ slot.start_time }}</td>
+                        <td>{{ slot.end_time }}</td>
+                        <td>
+                            <a href="{{ url_for('workers.edit_slot', slot_id=slot.id) }}" class="btn btn-sm btn-info">Edit</a>
+                            <form action="{{ url_for('workers.delete_slot', slot_id=slot.id) }}" method="post" style="display:inline" onsubmit="return confirm('Remove this schedule?')">
+                                <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
